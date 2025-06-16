@@ -20,6 +20,6 @@ Progetto e sviluppo sistemi intelligenti che trasformano input visivi o sonori i
 - Linux, Bash, Git
 
 ## 🧠 Autore
-👨‍🔧 [Il tuo nome] – Sound Engineer & Embedded AI Developer  
-📍 [Città, opzionale] | ✉️ [email, se vuoi]  
-🌐 [LinkedIn URL]
+👨‍🔧 Antonio Mainenti – Sound Engineer & Embedded AI Developer  
+📍 Roma
+🌐 [[LinkedIn URL]](https://www.linkedin.com/in/mainenti/)
