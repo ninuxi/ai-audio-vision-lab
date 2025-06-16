@@ -1,25 +1,50 @@
+# 🎛️ AI Audio Vision Lab
 
-# AI Audio Vision Lab 🎧🧠📷
+## 🇮🇹 Descrizione
+In questo progetto utilizzo una camera su Raspberry Pi per riconoscere oggetti in tempo reale e generare musica coerente tramite modelli di intelligenza artificiale (AI).  
+Il sistema funziona in modalità **offline** su Raspberry Pi 4, utilizzando PyTorch per il riconoscimento e modelli Magenta convertiti in TensorFlow Lite per la generazione musicale.
 
-Benvenuto nel mio laboratorio di prototipi per applicazioni di Intelligenza Artificiale su dispositivi embedded e sistemi audio.
+## 🇬🇧 Description
+In this project I use a camera on Raspberry Pi to recognize objects in real time and generate coherent music via AI models.  
+The system works **offline** on Raspberry Pi 4, using PyTorch for object detection and Magenta models converted to TensorFlow Lite for music generation.
 
-## 🔍 Obiettivo
-Progetto e sviluppo sistemi intelligenti che trasformano input visivi o sonori in esperienze musicali o interattive, usando:
-- Edge AI (TinyML, TFLite, PyTorch)
-- Audio generativo (Magenta, pretty_midi)
-- Hardware embedded (ESP32, Raspberry Pi)
-- Sistemi interattivi audio/video in tempo reale
+---
 
-## 📦 Progetti
-### 🎤 edge-audio-classifier/
-> Classificatore audio real-time (clap, fischio, silenzio) con PyTorch, pensato per essere poi convertito in TFLite o usato su Raspberry/ESP32
+## 🇮🇹 Caratteristiche principali
+- Riconoscimento oggetti in tempo reale con PyTorch  
+- Conversione dei modelli Magenta in TensorFlow Lite per esecuzione locale  
+- Generazione musicale basata su oggetti rilevati  
+- Intero sistema offline su Raspberry Pi 4  
 
-## ⚙️ Tecnologie usate
-- Python, PyTorch, TensorFlow Lite
-- librosa, sounddevice, numpy
-- Linux, Bash, Git
+## 🇬🇧 Key Features
+- Real-time object detection with PyTorch  
+- Conversion of Magenta models to TensorFlow Lite for local execution  
+- Music generation driven by detected objects  
+- Fully offline system on Raspberry Pi 4  
 
-## 🧠 Autore
-👨‍🔧 Antonio Mainenti – Sound Engineer & Embedded AI Developer  
-📍 Roma
-🌐 [[LinkedIn URL]](https://www.linkedin.com/in/mainenti/)
+---
+
+## 🇮🇹 Tecnologie utilizzate
+- **Python**  
+- **TorchVision / PyTorch**  
+- **Magenta**  
+- **TensorFlow Lite**  
+- **pretty_midi**  
+- **Raspberry Pi 4**
+
+## 🇬🇧 Technologies used
+- **Python**  
+- **TorchVision / PyTorch**  
+- **Magenta**  
+- **TensorFlow Lite**  
+- **pretty_midi**  
+- **Raspberry Pi 4**
+
+---
+
+## 🇮🇹 Installazione & Usage
+
+1. Clona il repository  
+```bash
+git clone https://github.com/ninuxi/ai-audio-vision-lab.git
+cd ai-audio-vision-lab
