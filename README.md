@@ -42,30 +42,40 @@ The system works **offline** on Raspberry Pi 4, using PyTorch for object detecti
 
 ---
 
-## 🇮🇹 Installazione & Usage
+## 🇮🇹 Installazione & Uso
 
 1. Clona il repository  
 ```bash
 git clone https://github.com/ninuxi/ai-audio-vision-lab.git
 cd ai-audio-vision-lab
-2. Installa le dipendenze Python
+
+    Installa le dipendenze Python
+
+bash
 
 pip install -r requirements.txt
 
     Inserisci la SD nel Raspberry Pi 4
 
     Esegui lo script
+
+bash
+
 python3 main.py
 
- 5. Inquadra un oggetto: verrà generata una melodia coerente.
+    Inquadra un oggetto: verrà generata una melodia coerente.
 
 🇬🇧 Installation & Usage
-
     Clone the repo
+
+bash
 
 git clone https://github.com/ninuxi/ai-audio-vision-lab.git
 cd ai-audio-vision-lab
+
     Install Python dependencies
+
+bash
 
 pip install -r requirements.txt
 
@@ -73,8 +83,8 @@ pip install -r requirements.txt
 
     Run the script
 python3 main.py
-Point the camera at an object: a coherent melody will be generated.
 
-Email: oggettosonoro@gmail.com
+    Point the camera at an object: a coherent melody will be generated.
 
-GitHub: ninuxi
+ Email: oggettosonoro@gmail.com
+ GitHub: ninuxi
