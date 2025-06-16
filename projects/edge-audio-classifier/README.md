@@ -21,4 +21,4 @@ python scripts/inference.py --file example.wav
 - Mapping audio → MIDI / generazione musicale
 
 ## 👨‍🔧 Autore
-[Il tuo nome] – 2025
+Antonio Mainenti – 2025
