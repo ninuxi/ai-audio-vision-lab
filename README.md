@@ -5,28 +5,28 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![AI](https://img.shields.io/badge/AI-PyTorch%20%2B%20Magenta-orange)
 
-> **Un sistema AI innovativo che trasforma la visione in musica**  
-> Riconosce oggetti in tempo reale e genera composizioni musicali coerenti, completamente offline su Raspberry Pi 4.
+> **An innovative AI system that transforms vision into music**  
+> Real-time object recognition and coherent music generation, running completely offline on Raspberry Pi 4.
 
 ---
 
-## 🎥 Demo in Azione
+## 🎥 Demo in Action
 
-[![Demo Video](https://img.shields.io/badge/▶️-Guarda%20la%20Demo-red?style=for-the-badge)](https://youtu.be/your-demo-link)
+[![Demo Video](https://img.shields.io/badge/▶️-Watch%20Demo-red?style=for-the-badge)](https://youtu.be/your-demo-link)
 
-| Oggetto Rilevato | Stile Generato | Sample Audio |
-|------------------|----------------|--------------|
-| 🌱 Pianta | Ambient, Rilassante | [▶️ Ascolta](examples/plant_music.mp3) |
-| 📚 Libro | Classico, Contemplativo | [▶️ Ascolta](examples/book_music.mp3) |
-| ☕ Tazza | Jazz, Intimo | [▶️ Ascolta](examples/cup_music.mp3) |
+| Detected Object | Generated Style | Audio Sample |
+|-----------------|----------------|--------------|
+| 🌱 Plant | Ambient, Relaxing | [▶️ Listen](examples/plant_music.mp3) |
+| 📚 Book | Classical, Contemplative | [▶️ Listen](examples/book_music.mp3) |
+| ☕ Cup | Jazz, Intimate | [▶️ Listen](examples/cup_music.mp3) |
 
 ---
 
-## 🧠 Architettura del Sistema
+## 🧠 System Architecture
 
 ```mermaid
 graph LR
-    A[Camera Raspberry Pi] --> B[PyTorch Object Detection]
+    A[Raspberry Pi Camera] --> B[PyTorch Object Detection]
     B --> C[Semantic Mapping Engine]
     C --> D[Magenta Music Generation]
     D --> E[TensorFlow Lite Inference]
@@ -36,40 +36,40 @@ graph LR
     style F fill:#99ff99
 ```
 
-### 🔧 Stack Tecnologico
+### 🔧 Technology Stack
 
-- **Computer Vision**: PyTorch + TorchVision (MobileNet V2 ottimizzato)
-- **AI Music**: Google Magenta convertito in TensorFlow Lite
+- **Computer Vision**: PyTorch + TorchVision (Optimized MobileNet V2)
+- **AI Music**: Google Magenta converted to TensorFlow Lite
 - **Hardware**: Raspberry Pi 4, Camera Module v2
-- **Audio**: pretty_midi + FluidSynth per sintesi real-time
-- **Ottimizzazioni**: Quantizzazione INT8, Pipeline asincrona
+- **Audio**: pretty_midi + FluidSynth for real-time synthesis
+- **Optimizations**: INT8 quantization, Asynchronous pipeline
 
 ---
 
-## 📊 Performance su Raspberry Pi 4
+## 📊 Performance on Raspberry Pi 4
 
-| Metrica | Valore |
+| Metric | Value |
 |---------|--------|
-| **FPS Detection** | 12-15 fps |
-| **Latenza Generazione** | < 2 secondi |
-| **RAM Utilizzata** | ~1.4GB |
+| **Detection FPS** | 12-15 fps |
+| **Generation Latency** | < 2 seconds |
+| **RAM Usage** | ~1.4GB |
 | **CPU Load** | 65-75% |
-| **Tempo Boot** | ~15 secondi |
+| **Boot Time** | ~15 seconds |
 
 ---
 
-## 🎵 Esempi di Output Musicale
+## 🎵 Musical Output Examples
 
-### Mappatura Semantica Oggetto → Musica
+### Semantic Object → Music Mapping
 
-Il sistema utilizza un algoritmo proprietario per mappare caratteristiche visive in parametri musicali:
+The system uses a proprietary algorithm to map visual features into musical parameters:
 
 ```python
-# Esempio concettuale (implementazione proprietaria)
+# Conceptual example (proprietary implementation not public)
 def object_to_music_params(detected_object):
     """
-    Converte oggetti rilevati in parametri musicali
-    Logica proprietaria non pubblica
+    Converts detected objects into musical parameters
+    Proprietary logic not disclosed
     """
     semantic_features = extract_semantic_features(detected_object)
     musical_params = {
@@ -80,110 +80,152 @@ def object_to_music_params(detected_object):
     return musical_params
 ```
 
-### 🎼 Composizioni Generate
+### 🎼 Generated Compositions
 
-**Oggetto: Pianta in Vaso** 🌱
-- **Stile**: Ambient, New Age
-- **Tonalità**: Do Maggiore
+**Object: Potted Plant** 🌱
+- **Style**: Ambient, New Age
+- **Key**: C Major
 - **Tempo**: 72 BPM
-- **Strumenti**: Pad sintetici, Archi soft
+- **Instruments**: Synth pads, Soft strings
 
-**Oggetto: Libro Aperto** 📖
-- **Stile**: Neoclassico
-- **Tonalità**: La minore
+**Object: Open Book** 📖
+- **Style**: Neoclassical
+- **Key**: A minor
 - **Tempo**: 60 BPM
-- **Strumenti**: Pianoforte, Quartetto d'archi
+- **Instruments**: Piano, String quartet
 
 ---
 
-## 🚀 Setup e Installazione
+## 🚀 Setup and Installation
 
-### Requisiti Hardware
-- Raspberry Pi 4 (4GB RAM minimo)
-- MicroSD 32GB+ (Classe 10)
-- Camera Module v2 o USB Camera
-- Speaker USB o Jack 3.5mm
+### Hardware Requirements
+- Raspberry Pi 4 (4GB RAM minimum)
+- MicroSD 32GB+ (Class 10)
+- Camera Module v2 or USB Camera
+- USB Speaker or 3.5mm Jack
 
-### Installazione Rapida
+### Quick Installation
 ```bash
-# Clona il repository demo
+# Clone demo repository
 git clone https://github.com/ninuxi/ai-audio-vision-lab.git
 cd ai-audio-vision-lab
 
-# Installa dipendenze
+# Install dependencies
 pip3 install -r requirements.txt
 
-# Configura hardware
-sudo raspi-config  # Abilita Camera
+# Configure hardware
+sudo raspi-config  # Enable Camera
 
-# Avvia demo
+# Start demo
 python3 demo/vision_music_demo.py
 ```
 
 ---
 
-## 🔬 Ricerca e Sviluppo
+## 🔬 Research and Development
 
-### Contributi Tecnici Originali
+### Original Technical Contributions
 
-1. **Pipeline Ottimizzata per Edge Computing**
-   - Quantizzazione personalizzata dei modelli Magenta
-   - Buffer circolare per elaborazione real-time
-   - Memory mapping intelligente per Raspberry Pi
+1. **Edge Computing Optimized Pipeline**
+   - Custom quantization of Magenta models
+   - Circular buffer for real-time processing
+   - Intelligent memory mapping for Raspberry Pi
 
-2. **Algoritmo di Mappatura Semantica**
-   - Correlazione oggetto-emozione basata su ricerca cognitiva
-   - Parametrizzazione musicale multi-dimensionale
-   - Sistema di coerenza temporale per transizioni fluide
+2. **Semantic Mapping Algorithm**
+   - Object-emotion correlation based on cognitive research
+   - Multi-dimensional musical parameterization
+   - Temporal coherence system for smooth transitions
 
-3. **Framework di Inferenza Offline**
-   - Zero dipendenze cloud
-   - Modelli completamente embedded
-   - Latenza < 2s garantita
+3. **Offline Inference Framework**
+   - Zero cloud dependencies
+   - Fully embedded models
+   - Guaranteed <2s latency
 
-### 📈 Roadmap Futura
+### 📈 Future Roadmap
 
-- [ ] **Versione Mobile**: Porting su Android/iOS
-- [ ] **Multi-Modalità**: Audio input + Visual input
-- [ ] **Learning Personalizzato**: Adattamento alle preferenze utente
-- [ ] **ESP32 Port**: Versione ultra-compatta con TinyML
+- [ ] **Mobile Version**: Android/iOS porting
+- [ ] **Multi-Modal**: Audio input + Visual input
+- [ ] **Personalized Learning**: User preference adaptation
+- [ ] **ESP32 Port**: Ultra-compact version with TinyML
 
 ---
 
-## 🤝 Collaborazioni e Contatti
+## 🤝 Collaborations and Contact
 
-**Interessato a collaborare?** Questo progetto è aperto a:
+**Interested in collaborating?** This project is open to:
 
-- 🎓 **Ricercatori** in AI/Music Information Retrieval
-- 🎵 **Musicisti** interessati a tecnologie creative
-- 💻 **Sviluppatori** con esperienza in edge computing
-- 🏢 **Aziende** per applicazioni commerciali
+- 🎓 **Researchers** in AI/Music Information Retrieval
+- 🎵 **Musicians** interested in creative technologies
+- 💻 **Developers** with edge computing experience
+- 🏢 **Companies** for commercial applications
 
-### 📧 Contatti
+### 📧 Contact
 - **Email**: oggettosonoro@gmail.com  
 - **GitHub**: [@ninuxi](https://github.com/ninuxi)
-- **Portfolio**: [Link al portfolio completo]
+- **Portfolio**: [Complete portfolio link]
 
 ---
 
-## ⚖️ Licenza e Utilizzo
+## ⚖️ License and Usage
 
-Questo repository contiene una **versione dimostrativa** del progetto AI Audio Vision Lab.  
+This repository contains a **demonstration version** of the AI Audio Vision Lab project.  
 
-- ✅ **Demo e esempi**: Liberamente utilizzabili (MIT License)
-- ❌ **Codice sorgente completo**: Proprietario, non pubblico
-- 🤝 **Collaborazioni commerciali**: Contatta per licenze specifiche
+- ✅ **Demo and examples**: Freely usable (MIT License)
+- ❌ **Complete source code**: Proprietary, not public
+- 🤝 **Commercial collaborations**: Contact for specific licenses
 
-> **Nota**: Gli algoritmi core e i modelli addestrati rappresentano ricerca originale e non sono pubblicamente disponibili. Per accesso completo o partnership commerciali, contatta direttamente l'autore.
-
----
-
-## 🌟 Riconoscimenti
-
-Progetto sviluppato da **Antonio Mainenti** (2024-2025)
-
-*Se questo progetto ti ispira, lascia una ⭐ e condividilo!*
+> **Note**: Core algorithms and trained models represent original research and are not publicly available. For full access or commercial partnerships, contact the author directly.
 
 ---
 
-**© 2025 Antonio Mainenti - Alcuni diritti riservati**
+## 🌟 Acknowledgments
+
+Project developed by **Antonio Mainenti** (2024-2025)
+
+*If this project inspires you, leave a ⭐ and share it!*
+
+---
+
+**© 2025 Antonio Mainenti - Some rights reserved**
+
+---
+
+## 🇮🇹 Versione Italiana
+
+Un sistema AI su Raspberry Pi che riconosce oggetti in tempo reale e genera musica coerente tramite modelli di intelligenza artificiale, funzionando completamente offline.
+
+### Caratteristiche principali
+
+- Riconoscimento oggetti in tempo reale con PyTorch  
+- Conversione dei modelli Magenta in TensorFlow Lite per esecuzione locale  
+- Generazione musicale basata su oggetti rilevati  
+- Intero sistema offline su Raspberry Pi 4  
+
+### Installazione & Uso
+
+1. Clona il repository  
+   ```bash
+   git clone https://github.com/ninuxi/ai-audio-vision-lab.git
+   cd ai-audio-vision-lab
+   ```
+
+2. Installa le dipendenze Python
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Inserisci la microSD nel Raspberry Pi 4
+
+4. Esegui lo script
+   ```bash
+   python3 main.py
+   ```
+
+5. Inquadra un oggetto: verrà generata una melodia coerente.
+
+### Contatti
+
+- **Email**: oggettosonoro@gmail.com
+- **GitHub**: [@ninuxi](https://github.com/ninuxi)
+
+Per la documentazione completa in italiano, vedi [docs/README_IT.md](docs/README_IT.md).
