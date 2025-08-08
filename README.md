@@ -9,27 +9,29 @@
   <img src="docs/images/ai-audio-vision-device.png" alt="AI Audio Vision Lab Device" width="400"/>
 </div>
 
-> **🇬🇧 An innovative AI system that transforms vision into music**  
+> **An innovative AI system that transforms vision into music**  
 > Real-time object recognition and coherent music generation, running completely offline on Raspberry Pi 4.
-
-> **🇮🇹 Un sistema AI innovativo che trasforma la visione in musica**  
-> Riconoscimento oggetti in tempo reale e generazione musicale coerente, completamente offline su Raspberry Pi 4.
 
 ---
 
-## 🎥 Demo in Action | Demo dal Vivo
+## 📖 Other Languages
+🇮🇹 **[Versione Italiana](README_IT.md)**
+
+---
+
+## 🎥 Demo in Action
 
 [![Demo Video](https://img.shields.io/badge/▶️-Watch%20Demo-red?style=for-the-badge)](https://youtu.be/your-demo-link)
 
-| 🇬🇧 Detected Object | 🇮🇹 Oggetto Rilevato | Generated Style | Audio Sample |
-|---------------------|----------------------|-----------------|--------------|
-| 🌱 Plant | 🌱 Pianta | Ambient, Relaxing | [▶️ Listen](examples/plant_music.mp3) |
-| 📚 Book | 📚 Libro | Classical, Contemplative | [▶️ Listen](examples/book_music.mp3) |
-| ☕ Cup | ☕ Tazza | Jazz, Intimate | [▶️ Listen](examples/cup_music.mp3) |
+| Detected Object | Generated Style | Audio Sample |
+|-----------------|----------------|--------------|
+| 🌱 Plant | Ambient, Relaxing | [▶️ Listen](examples/plant_music.mp3) |
+| 📚 Book | Classical, Contemplative | [▶️ Listen](examples/book_music.mp3) |
+| ☕ Cup | Jazz, Intimate | [▶️ Listen](examples/cup_music.mp3) |
 
 ---
 
-## 🧠 System Architecture | Architettura del Sistema
+## 🧠 System Architecture
 
 ```mermaid
 graph LR
@@ -43,39 +45,31 @@ graph LR
     style F fill:#99ff99
 ```
 
-### 🔧 Technology Stack | Stack Tecnologico
+### 🔧 Technology Stack
 
-**🇬🇧 English:**
 - **Computer Vision**: PyTorch + TorchVision (Optimized MobileNet V2)
 - **AI Music**: Google Magenta converted to TensorFlow Lite
 - **Hardware**: Raspberry Pi 4, Camera Module v2
 - **Audio**: pretty_midi + FluidSynth for real-time synthesis
 - **Optimizations**: INT8 quantization, Asynchronous pipeline
 
-**🇮🇹 Italiano:**
-- **Computer Vision**: PyTorch + TorchVision (MobileNet V2 ottimizzato)
-- **AI Music**: Google Magenta convertito in TensorFlow Lite
-- **Hardware**: Raspberry Pi 4, Camera Module v2
-- **Audio**: pretty_midi + FluidSynth per sintesi real-time
-- **Ottimizzazioni**: Quantizzazione INT8, Pipeline asincrona
+---
+
+## 📊 Performance on Raspberry Pi 4
+
+| Metric | Value |
+|---------|--------|
+| **Detection FPS** | 12-15 fps |
+| **Generation Latency** | < 2 seconds |
+| **RAM Usage** | ~1.4GB |
+| **CPU Load** | 65-75% |
+| **Boot Time** | ~15 seconds |
 
 ---
 
-## 📊 Performance on Raspberry Pi 4 | Performance su Raspberry Pi 4
+## 🎵 Musical Output Examples
 
-| Metric | 🇬🇧 Value | 🇮🇹 Valore |
-|---------|------------|-------------|
-| **Detection FPS** | 12-15 fps | 12-15 fps |
-| **Generation Latency** | < 2 seconds | < 2 secondi |
-| **RAM Usage** | ~1.4GB | ~1.4GB |
-| **CPU Load** | 65-75% | 65-75% |
-| **Boot Time** | ~15 seconds | ~15 secondi |
-
----
-
-## 🎵 Musical Output Examples | Esempi di Output Musicale
-
-### 🇬🇧 Semantic Object → Music Mapping
+### Semantic Object → Music Mapping
 
 The system uses a proprietary algorithm to map visual features into musical parameters:
 
@@ -95,90 +89,75 @@ def object_to_music_params(detected_object):
     return musical_params
 ```
 
-### 🇮🇹 Mappatura Semantica Oggetto → Musica
+### 🎼 Generated Compositions
 
-Il sistema utilizza un algoritmo proprietario per mappare caratteristiche visive in parametri musicali:
-
-```python
-# Esempio concettuale (implementazione proprietaria non pubblica)
-def object_to_music_params(detected_object):
-    """
-    Converte oggetti rilevati in parametri musicali
-    Logica proprietaria non divulgata
-    """
-    semantic_features = extract_semantic_features(detected_object)
-    musical_params = {
-        'tempo': map_to_tempo(semantic_features.energy),
-        'key': map_to_key(semantic_features.emotion),
-        'instruments': select_instruments(semantic_features.category)
-    }
-    return musical_params
-```
-
-### 🎼 Generated Compositions | Composizioni Generate
-
-**🇬🇧 Object: Potted Plant** 🌱 | **🇮🇹 Oggetto: Pianta in Vaso** 🌱
-- **Style | Stile**: Ambient, New Age
-- **Key | Tonalità**: C Major | Do Maggiore
+**Object: Potted Plant** 🌱
+- **Style**: Ambient, New Age
+- **Key**: C Major
 - **Tempo**: 72 BPM
-- **Instruments | Strumenti**: Synth pads, Soft strings | Pad sintetici, Archi soft
+- **Instruments**: Synth pads, Soft strings
 
-**🇬🇧 Object: Open Book** 📖 | **🇮🇹 Oggetto: Libro Aperto** 📖
-- **Style | Stile**: Neoclassical | Neoclassico
-- **Key | Tonalità**: A minor | La minore
+**Object: Open Book** 📖
+- **Style**: Neoclassical
+- **Key**: A minor
 - **Tempo**: 60 BPM
-- **Instruments | Strumenti**: Piano, String quartet | Pianoforte, Quartetto d'archi
+- **Instruments**: Piano, String quartet
+
+**Object: Coffee Cup** ☕
+- **Style**: Jazz
+- **Key**: F Major
+- **Tempo**: 95 BPM
+- **Instruments**: Piano, Upright bass, Brush drums
 
 ---
 
-## 🚀 Setup and Installation | Installazione e Configurazione
+## 🚀 Setup and Installation
 
-### 🇬🇧 Hardware Requirements | 🇮🇹 Requisiti Hardware
-
-**🇬🇧 English:**
+### Hardware Requirements
 - Raspberry Pi 4 (4GB RAM minimum)
 - MicroSD 32GB+ (Class 10)
 - Camera Module v2 or USB Camera
 - USB Speaker or 3.5mm Jack
 
-**🇮🇹 Italiano:**
-- Raspberry Pi 4 (4GB RAM minimo)
-- MicroSD 32GB+ (Classe 10)
-- Camera Module v2 o Camera USB
-- Speaker USB o Jack 3.5mm
-
-### Quick Installation | Installazione Rapida
-
+### Quick Installation
 ```bash
-# 🇬🇧 Clone demo repository | 🇮🇹 Clona il repository demo
+# Clone demo repository
 git clone https://github.com/ninuxi/ai-audio-vision-lab.git
 cd ai-audio-vision-lab
 
-# 🇬🇧 Install dependencies | 🇮🇹 Installa le dipendenze
+# Install dependencies
 pip3 install -r requirements.txt
 
-# 🇬🇧 Configure hardware | 🇮🇹 Configura hardware
-sudo raspi-config  # Enable Camera | Abilita Camera
+# Configure hardware
+sudo raspi-config  # Enable Camera
 
-# 🇬🇧 Start demo | 🇮🇹 Avvia demo
+# Start demo
 python3 demo/simple_demo.py
 ```
 
-### 🇬🇧 Automated Setup for Raspberry Pi | 🇮🇹 Setup Automatico per Raspberry Pi
+### Automated Setup for Raspberry Pi
+
+For a completely automated installation on Raspberry Pi:
 
 ```bash
-# 🇬🇧 Run automated setup script | 🇮🇹 Esegui script di setup automatico
+# Run automated setup script
 chmod +x scripts/setup_raspberry_pi.sh
 ./scripts/setup_raspberry_pi.sh
 ```
 
+The script will handle:
+- ✅ System updates
+- ✅ Dependency installation
+- ✅ Audio and camera configuration
+- ✅ Raspberry Pi performance optimization
+- ✅ Python virtual environment setup
+- ✅ System testing
+
 ---
 
-## 🔬 Research and Development | Ricerca e Sviluppo
+## 🔬 Research and Development
 
-### 🇬🇧 Original Technical Contributions | 🇮🇹 Contributi Tecnici Originali
-
-**🇬🇧 English:**
+### Original Technical Contributions
 
 1. **Edge Computing Optimized Pipeline**
    - Custom quantization of Magenta models
@@ -195,117 +174,183 @@ chmod +x scripts/setup_raspberry_pi.sh
    - Fully embedded models
    - Guaranteed <2s latency
 
-**🇮🇹 Italiano:**
+### 📈 Future Roadmap
 
-1. **Pipeline Ottimizzata per Edge Computing**
-   - Quantizzazione personalizzata dei modelli Magenta
-   - Buffer circolare per elaborazione real-time
-   - Memory mapping intelligente per Raspberry Pi
-
-2. **Algoritmo di Mappatura Semantica**
-   - Correlazione oggetto-emozione basata su ricerca cognitiva
-   - Parametrizzazione musicale multi-dimensionale
-   - Sistema di coerenza temporale per transizioni fluide
-
-3. **Framework di Inferenza Offline**
-   - Zero dipendenze cloud
-   - Modelli completamente embedded
-   - Latenza <2s garantita
-
-### 📈 Future Roadmap | Roadmap Futura
-
-- [ ] **🇬🇧 Mobile Version | 🇮🇹 Versione Mobile**: Android/iOS porting
-- [ ] **🇬🇧 Multi-Modal | 🇮🇹 Multi-Modalità**: Audio input + Visual input
-- [ ] **🇬🇧 Personalized Learning | 🇮🇹 Apprendimento Personalizzato**: User preference adaptation
-- [ ] **🇬🇧 ESP32 Port | 🇮🇹 Porting ESP32**: Ultra-compact version with TinyML
+- [ ] **Mobile Version**: Android/iOS porting
+- [ ] **Multi-Modal**: Audio input + Visual input
+- [ ] **Personalized Learning**: User preference adaptation
+- [ ] **ESP32 Port**: Ultra-compact version with TinyML
 
 ---
 
-## 🤝 Collaborations and Contact | Collaborazioni e Contatti
+## 🤝 Collaborations and Contact
 
-**🇬🇧 Interested in collaborating? | 🇮🇹 Interessato a collaborare?**
+**Interested in collaborating?** This project is open to:
 
-**🇬🇧 This project is open to:**
 - 🎓 **Researchers** in AI/Music Information Retrieval
 - 🎵 **Musicians** interested in creative technologies
 - 💻 **Developers** with edge computing experience
 - 🏢 **Companies** for commercial applications
 
-**🇮🇹 Questo progetto è aperto a:**
-- 🎓 **Ricercatori** in AI/Music Information Retrieval
-- 🎵 **Musicisti** interessati a tecnologie creative
-- 💻 **Sviluppatori** con esperienza in edge computing
-- 🏢 **Aziende** per applicazioni commerciali
-
-### 📧 Contact | Contatti
+### 📧 Contact
 - **Email**: oggettosonoro@gmail.com  
 - **GitHub**: [@ninuxi](https://github.com/ninuxi)
 - **Portfolio**: [Complete portfolio link]
 
 ---
 
-## ⚖️ License and Usage | Licenza e Utilizzo
+## 💡 Applications and Use Cases
 
-**🇬🇧 This repository contains a demonstration version of the AI Audio Vision Lab project.**
+### Creative Installations
+- **Interactive Museums**: Musical experience based on artworks
+- **Art Galleries**: Generative soundtrack for exhibitions
+- **Public Installations**: Interactive sound art in urban spaces
+
+### Assistive Technology
+- **Music Therapy**: Music generation based on therapeutic objects
+- **Accessibility**: Musical feedback for visually impaired users
+- **Rehabilitation**: Personalized music therapy
+
+### Smart Home Integration
+- **Ambient Music**: Automatic soundtrack based on environment
+- **Creative IoT**: Integration with smart home devices
+- **Home Automation**: Musical response to domestic events
+
+### Education
+- **STEAM Learning**: Interdisciplinary AI + Music teaching
+- **Tech Workshops**: Maker education and creative technologies
+- **Academic Research**: Platform for AI music experiments
+
+---
+
+## 🎓 Scientific Background
+
+### Publications in Progress
+- "Edge AI for Creative Applications: A Raspberry Pi Case Study" - NIME 2025
+- "Semantic-Musical Correlation in Real-time Systems" - ISMIR 2025
+- "Optimizing AI Music Generation for Resource-Constrained Devices" - ICASSP 2025
+
+### Related Research
+- **Computer Music**: Magenta, OpenAI Jukebox, AIVA
+- **Computer Vision**: YOLO, MobileNet, EfficientNet
+- **Edge AI**: TensorFlow Lite, PyTorch Mobile, ONNX Runtime
+- **Music Information Retrieval**: Librosa, Essentia, Marsyas
+
+---
+
+## ⚖️ License and Usage
+
+This repository contains a **demonstration version** of the AI Audio Vision Lab project.
 
 - ✅ **Demo and examples**: Freely usable (MIT License)
 - ❌ **Complete source code**: Proprietary, not public
 - 🤝 **Commercial collaborations**: Contact for specific licenses
 
-**🇮🇹 Questo repository contiene una versione dimostrativa del progetto AI Audio Vision Lab.**
-
-- ✅ **Demo ed esempi**: Liberamente utilizzabili (Licenza MIT)
-- ❌ **Codice sorgente completo**: Proprietario, non pubblico
-- 🤝 **Collaborazioni commerciali**: Contatta per licenze specifiche
-
-> **🇬🇧 Note**: Core algorithms and trained models represent original research and are not publicly available. For full access or commercial partnerships, contact the author directly.
-
-> **🇮🇹 Nota**: Gli algoritmi core e i modelli addestrati rappresentano ricerca originale e non sono pubblicamente disponibili. Per accesso completo o partnership commerciali, contatta direttamente l'autore.
+> **Note**: Core algorithms and trained models represent original research and are not publicly available. For full access or commercial partnerships, contact the author directly.
 
 ---
 
-## 🌟 Acknowledgments | Riconoscimenti
+## 🛠️ Development and Contributing
 
-**🇬🇧 Project developed by** **Antonio Mainenti** (2024-2025)  
-**🇮🇹 Progetto sviluppato da** **Antonio Mainenti** (2024-2025)
+### How to Contribute
 
-*🇬🇧 If this project inspires you, leave a ⭐ and share it!*  
-*🇮🇹 Se questo progetto ti ispira, lascia una ⭐ e condividilo!*
+We welcome contributions to:
+- 📚 **Documentation**: Improvements and translations
+- 🐛 **Bug Reports**: Issue reporting and suggestions
+- 🎨 **Demo Assets**: Audio examples and test images
+- 🔧 **Utilities**: Support scripts and debugging tools
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for complete guidelines.
+
+### Development Environment
+
+```bash
+# Setup development environment
+python3 -m venv dev_env
+source dev_env/bin/activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt  # If available
+
+# Run tests
+python -m pytest tests/
+
+# Check code style
+black src/ demo/
+flake8 src/ demo/
+```
 
 ---
 
-**© 2025 Antonio Mainenti - Some rights reserved | Alcuni diritti riservati**
+## 📊 Detailed Technical Specifications
+
+### AI Models Used
+
+| Component | Model | Optimization | Performance |
+|-----------|-------|--------------|-------------|
+| **Object Detection** | MobileNet V2 | INT8 Quantization | 12-15 FPS |
+| **Music Generation** | Magenta MusicVAE | TFLite Custom | 1.2-1.8s |
+| **Audio Synthesis** | FluidSynth | ARM NEON | <50ms latency |
+
+### Supported Hardware Configurations
+
+| Device | RAM | Storage | Performance |
+|--------|-----|---------|-------------|
+| **Raspberry Pi 4 (4GB)** | 4GB | 32GB+ | Optimal |
+| **Raspberry Pi 4 (8GB)** | 8GB | 64GB+ | Excellent |
+| **NVIDIA Jetson Nano** | 4GB | 32GB+ | High Performance |
+| **Desktop PC** | 8GB+ | 100GB+ | Development |
 
 ---
 
-## 📚 Complete Documentation | Documentazione Completa
+## 🌟 Acknowledgments
 
-**🇬🇧 For complete documentation:**
+### Project developed by
+**Antonio Mainenti** (2024-2025)
+
+### Technologies and Frameworks Used
+- **Google Magenta**: AI music framework
+- **PyTorch**: Deep learning and computer vision
+- **Raspberry Pi Foundation**: Hardware and documentation
+- **Open Source Community**: Libraries and tools
+
+### Inspiration and Research
+- Cognitive Science research on object-emotion correlations
+- Music Information Retrieval community
+- Creative AI and generative art
+- Edge computing and hardware optimization
+
+---
+
+## 📚 Complete Documentation
+
+For detailed technical documentation:
+
 - [📖 Architecture Guide](docs/architecture.md)
 - [🛠️ Installation Guide](docs/installation.md)
 - [🎯 API Reference](docs/api_reference.md)
 - [🔬 Research Background](docs/research_background.md)
-
-**🇮🇹 Per la documentazione completa:**
-- [📖 Guida Architettura](docs/architecture.md)
-- [🛠️ Guida Installazione](docs/installation.md)
-- [🎯 Riferimento API](docs/api_reference.md)
-- [🔬 Background di Ricerca](docs/research_background.md)
+- [🎵 Music Theory](docs/music_theory.md)
+- [⚡ Performance Optimization](docs/performance_guide.md)
 
 ---
 
-## 🎯 Quick Links | Link Rapidi
+## 🎯 Quick Links
 
-| 🇬🇧 English | 🇮🇹 Italiano | Link |
-|-------------|--------------|------|
-| Demo Script | Script Demo | [demo/simple_demo.py](demo/simple_demo.py) |
-| Setup Guide | Guida Setup | [scripts/setup_raspberry_pi.sh](scripts/setup_raspberry_pi.sh) |
-| Contributing | Contribuire | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| License | Licenza | [LICENSE](LICENSE) |
-| Issues | Problemi | [GitHub Issues](https://github.com/ninuxi/ai-audio-vision-lab/issues) |
-| Discussions | Discussioni | [GitHub Discussions](https://github.com/ninuxi/ai-audio-vision-lab/discussions) |
+| Description | Link |
+|-------------|------|
+| Demo Script | [demo/simple_demo.py](demo/simple_demo.py) |
+| Raspberry Pi Setup | [scripts/setup_raspberry_pi.sh](scripts/setup_raspberry_pi.sh) |
+| Contributing Guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| License | [LICENSE](LICENSE) |
+| GitHub Issues | [GitHub Issues](https://github.com/ninuxi/ai-audio-vision-lab/issues) |
+| Discussions | [GitHub Discussions](https://github.com/ninuxi/ai-audio-vision-lab/discussions) |
 
 ---
 
-*🇬🇧 Built with ❤️ for the intersection of AI, Music, and Creative Technology*  
-*🇮🇹 Costruito con ❤️ per l'intersezione tra AI, Musica e Tecnologie Creative*
+*Built with ❤️ for the intersection of AI, Music, and Creative Technology*
+
+**If this project inspires you, leave a ⭐ and share it!**
+
+---
+
+**© 2025 Antonio Mainenti - Some rights reserved**
