@@ -1,0 +1,405 @@
+# AI Audio Vision Lab - .gitignore
+# Protects proprietary code and sensitive data from accidental commits
+
+# ============================================================================
+# CRITICAL: PROPRIETARY MODELS AND WEIGHTS - NEVER COMMIT
+# ============================================================================
+*.pt                    # PyTorch model weights
+*.pth                   # PyTorch model weights
+*.tflite               # TensorFlow Lite models
+*.pb                   # TensorFlow protobuf models
+*.h5                   # Keras/HDF5 models
+*.pkl                  # Pickled models and data
+*.joblib               # Joblib serialized models
+*.onnx                 # ONNX models
+
+# Model directories
+models/
+weights/
+checkpoints/
+saved_models/
+model_cache/
+
+# ============================================================================
+# PROPRIETARY CODE AND ALGORITHMS - NEVER COMMIT
+# ============================================================================
+src/core/              # Core proprietary algorithms
+src/proprietary/       # Proprietary implementations
+private/               # Private development files
+internal/              # Internal-only code
+commercial/            # Commercial licensing code
+
+# Training and research code
+training_scripts/      # Full training implementations
+research/              # Research notebooks and experiments
+experiments/           # Experimental code and results
+
+# Configuration files with secrets
+*_private.py          # Private configuration files
+*_secret.py           # Secret configuration files
+*_proprietary.py      # Proprietary implementation files
+config_production.py  # Production configurations
+config_commercial.py  # Commercial configurations
+
+# ============================================================================
+# DATA AND DATASETS - POTENTIALLY SENSITIVE
+# ============================================================================
+data/                 # Training and test datasets
+datasets/             # Custom datasets
+dataset_cache/        # Cached datasets
+raw_data/             # Raw unprocessed data
+processed_data/       # Processed datasets
+
+# Audio and media files
+*.wav                 # Audio files (except demo samples)
+*.mp3                 # Audio files (except demo samples)
+*.flac                # Audio files
+*.ogg                 # Audio files
+*.m4a                 # Audio files
+*.midi                # MIDI files (except demo samples)
+*.mid                 # MIDI files (except demo samples)
+
+# Allow specific demo samples
+!demo/assets/sample_objects/
+!demo/assets/generated_music/*.mp3
+!demo/assets/generated_music/*.wav
+!notebooks/assets/
+
+# Image datasets and large media
+*.avi                 # Video files
+*.mp4                 # Video files (except demo videos)
+*.mov                 # Video files
+*.mkv                 # Video files
+
+# Allow demo videos
+!demo/assets/videos/
+
+# ============================================================================
+# SYSTEM AND ENVIRONMENT FILES
+# ============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.conda/
+conda-meta/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit tests and coverage
+.coverage
+.pytest_cache/
+cover/
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# IPython
+profile_default/
+ipython_config.py
+
+# ============================================================================
+# DEVELOPMENT TOOLS AND IDEs
+# ============================================================================
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ============================================================================
+# SYSTEM FILES
+# ============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.tmp
+*.temp
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================================================
+# LOGS AND RUNTIME FILES
+# ============================================================================
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ============================================================================
+# DOCUMENTATION AND ASSETS
+# ============================================================================
+
+# Generated documentation
+docs/_build/
+docs/build/
+site/
+.mkdocs/
+
+# Sphinx documentation
+docs/_build/
+
+# Large assets (keep small demo assets)
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Temporary files
+tmp/
+temp/
+cache/
+.cache/
+
+# ============================================================================
+# DEPLOYMENT AND INFRASTRUCTURE
+# ============================================================================
+
+# Docker
+.dockerignore
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# AWS
+.aws/
+
+# Google Cloud
+.gcloud/
+*.json  # Exclude service account keys
+
+# ============================================================================
+# COMMERCIAL AND LICENSING
+# ============================================================================
+
+# License keys and certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+license_keys/
+certificates/
+
+# Commercial deployment configurations
+production.env
+staging.env
+commercial.env
+
+# Customer data and configurations
+customers/
+client_configs/
+deployment_configs/
+
+# ============================================================================
+# BENCHMARKS AND PERFORMANCE DATA
+# ============================================================================
+
+# Performance logs and benchmarks (allow summary reports)
+benchmark_results/
+performance_logs/
+profiling_results/
+
+# Allow summary benchmark files for portfolio
+!docs/benchmarks/
+!demo/performance_summary.md
+
+# ============================================================================
+# BACKUP AND TEMPORARY FILES
+# ============================================================================
+
+# Backups
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+
+# Temporary files
+.tmp/
+*.tmp
+*~
+.#*
+
+# Editor temporary files
+.*.swp
+.*.swo
+
+# ============================================================================
+# PROJECT-SPECIFIC EXCLUSIONS
+# ============================================================================
+
+# Audio processing cache
+audio_cache/
+spectrogram_cache/
+feature_cache/
+
+# Model conversion outputs
+converted_models/
+optimized_models/
+quantized_models/
+
+# Hardware-specific configurations
+raspberry_pi_configs/
+edge_device_configs/
+
+# Research and analysis
+analysis_results/
+research_notes/
+paper_drafts/
+
+# Personal notes and todos (keep public todos)
+personal_notes/
+private_todos/
+*.personal
+
+# ============================================================================
+# ALLOW SPECIFIC FILES FOR PORTFOLIO
+# ============================================================================
+
+# Explicitly allow important demo and documentation files
+!README.md
+!LICENSE
+!CONTRIBUTING.md
+!demo/simple_demo.py
+!demo/interactive_demo.py
+!docs/*.md
+!notebooks/01_concept_overview.ipynb
+!notebooks/02_*.ipynb
+!src/interfaces/
+!src/utils/
+!src/demo_modules/
+!tests/
+!scripts/setup_raspberry_pi.sh
+!scripts/install_dependencies.sh
+!demo/assets/sample_objects/demo_*.jpg
+!demo/assets/generated_music/demo_*.mp3
+!demo/assets/videos/demo_preview.mp4
+
+# ============================================================================
+# NOTES FOR DEVELOPERS
+# ============================================================================
+
+# This .gitignore is designed to protect:
+# 1. Proprietary algorithms and trained models
+# 2. Commercial licensing information  
+# 3. Customer data and configurations
+# 4. Personal research and development files
+# 5. System-specific optimizations and secrets
+#
+# While allowing:
+# 1. Public interfaces and architectures
+# 2. Demo implementations and examples
+# 3. Documentation and educational content
+# 4. Open-source utility functions
+# 5. Portfolio-worthy code samples
+#
+# Always review files before committing to ensure no proprietary
+# content is accidentally included in public repositories.
