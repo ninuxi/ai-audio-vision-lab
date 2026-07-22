@@ -1,0 +1,1 @@
+{"ruvida": "shirt", "umida": "shirt", "colori": "blue", "epoca": "shirt", "condizione": "shirt", "atmosfera": "shirt", "postura": "shirt", "textureo": "shirt" }

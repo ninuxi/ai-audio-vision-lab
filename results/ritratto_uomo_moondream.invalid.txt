@@ -1,0 +1,1 @@
+{"soggetto": "ruvida", "materiali": "umida", "colori": "green", "epoca": "blue", "condizione": "white", "atmosfera": "gray", "postura": "clean", "textureo": "smooth", "dissiputazione": ""}

@@ -1,0 +1,1 @@
+{"ruvida": "green", "umida": "black", "colori": "white", "epoca": "gray", "condizione": "black and white", "atmosfera": "gray", "postura": "gray", "textureo": "gray" }

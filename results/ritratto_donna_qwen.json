@@ -1,0 +1,10 @@
+{
+  "soggetto": "ragazza",
+  "materiali": ["camicia nera", "giacca grigia"],
+  "colori": ["nero", "grigio", "argento"],
+  "epoca": "contemporanea",
+  "condizione": "buona",
+  "atmosfera": "serena",
+  "postura": "diretta",
+  "texture": ["liscia"]
+}

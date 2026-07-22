@@ -1,0 +1,10 @@
+{
+  "soggetto": "bicicletta motrice antica",
+  "materiali": ["acciaio", "legno"],
+  "colori": ["nero", "oro"],
+  "epoca": "fine del XIX secolo",
+  "condizione": "antiquata, usata",
+  "atmosfera": "nostalgica, storica",
+  "postura": ["seduta", "piede"],
+  "texture": ["rugosa", "liscia"]
+}

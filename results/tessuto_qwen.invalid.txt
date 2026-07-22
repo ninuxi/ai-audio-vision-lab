@@ -1,0 +1,12 @@
+```json
+{
+  "soggetto": "tessuto",
+  "materiali": ["cotone"],
+  "colori": ["blu"],
+  "epoca": ["moderna"],
+  "condizione": ["intatta"],
+  "atmosfera": ["calma", "rustica"],
+  "postura": [],
+  "texture": ["ruvida"]
+}
+```

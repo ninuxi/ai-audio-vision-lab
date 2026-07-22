@@ -1,0 +1,12 @@
+```json
+{
+  "soggetto": "luce di strada",
+  "materiali": ["vetro"],
+  "colori": ["arancione", "bianco", "verde"],
+  "epoca": "contemporanea",
+  "condizione": "sfocata",
+  "atmosfera": "calma, serena",
+  "postura": [],
+  "texture": []
+}
+```

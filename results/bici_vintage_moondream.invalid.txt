@@ -1,0 +1,1 @@
+{"ruvida": "ruvida", "umida": "umida", "atmosfera": "atmosfera", "postura": "postura", "texturei": "texturei", "epoca": "epoca", "condizione": "condizione", "dizionario": "dizionario", "stringhe": ""}

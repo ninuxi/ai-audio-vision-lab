@@ -1,0 +1,12 @@
+```json
+{
+  "soggetto": "piastra metallica",
+  "materiali": ["metallo"],
+  "colori": ["oro", "rosso", "verde"],
+  "epoca": "moderna",
+  "condizione": ["usata", "corrosa"],
+  "atmosfera": ["antica", "misteriosa"],
+  "postura": [],
+  "texture": ["ruvida", "strutturata"]
+}
+```

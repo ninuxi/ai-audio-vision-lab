@@ -1,0 +1,10 @@
+{
+  "soggetto": "uomo",
+  "materiali": ["maglione"],
+  "colori": ["grigio", "blu"],
+  "epoca": ["contemporanea"],
+  "condizione": ["ben curato"],
+  "atmosfera": ["serena"],
+  "postura": ["diretta"],
+  "texture": ["lana"]
+}

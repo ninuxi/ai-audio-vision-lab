@@ -1,0 +1,10 @@
+{
+  "soggetto": "surf",
+  "materiali": ["acqua", "spuma"],
+  "colori": ["grigio", "nero"],
+  "epoca": "contemporanea",
+  "condizione": "umida",
+  "atmosfera": "rilassante, naturale",
+  "postura": "inclinata verso destra",
+  "texture": ["ruvida", "umida"]
+}

@@ -1,0 +1,1 @@
+{"ruvida": "green", "umida": "red", "colori": "yellow", "epoca": "orange", "condizione": "gray", "atmosfera": "wavy", "postura": "zigzag", "textureo": "scratched" }

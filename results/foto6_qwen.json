@@ -1,0 +1,10 @@
+{
+  "soggetto": "spazzole da pittura",
+  "materiali": ["legno", "pennello"],
+  "colori": ["marrone", "nero", "bianco"],
+  "epoca": "moderna",
+  "condizione": "usate",
+  "atmosfera": "creativa, artigianale",
+  "postura": "disposte su un tavolo",
+  "texture": ["legno liscio", "pennello morbido"]
+}

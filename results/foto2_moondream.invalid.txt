@@ -1,0 +1,1 @@
+{"ruvida": "soggetto", "umida": "materiali", "colori": "colori", "epoca": "epoca", "condizione": "condizione", "atmosfera": "atmosfera", "postura": "postura", "texture": "texture" }

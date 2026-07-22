@@ -1,0 +1,10 @@
+{
+  "soggetto": "prati",
+  "materiali": ["piante"],
+  "colori": ["giallo", "oro", "verde"],
+  "epoca": "primavera",
+  "condizione": "salutevole",
+  "atmosfera": "rilassata, serena",
+  "postura": ["svegliate", "leggermente inclinate"],
+  "texture": ["liscia"]
+}

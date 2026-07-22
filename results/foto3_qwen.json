@@ -1,0 +1,10 @@
+{
+  "soggetto": "cascata",
+  "materiali": ["roccia", "vegetazione"],
+  "colori": ["verde", "grigio", "bianco"],
+  "epoca": "contemporanea",
+  "condizione": "intatta",
+  "atmosfera": "rilassante, naturale",
+  "postura": "verticalmente",
+  "texture": ["rugosa", "liscia"]
+}

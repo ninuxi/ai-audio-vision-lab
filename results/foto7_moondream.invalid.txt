@@ -1,0 +1,1 @@
+{"ruvida": "red", "umida": "white", "atmosfera": "black", "postura": "gray", "texturei": "rough", "epoca": "sparkling", "condizione": "sparkling", "dizionario": ""}

@@ -1,0 +1,1 @@
+{"ruvida": "red", "umida": "red", "colori": "red", "epoca": "red", "condizione": "red", "atmosfera": "red", "postura": "red", "textureo": "red"}
