@@ -8,6 +8,8 @@
 
 Un bot Telegram che trasforma una fotografia in una composizione musicale originale, generata su misura per quella scena.
 
+> 📜 Questo progetto ha avuto una versione precedente, basata su Raspberry Pi + PyTorch + Magenta: vedi [README_IT.md](README_IT.md) per l'architettura originale (con il render dell'hardware).
+
 ---
 
 ## 🇮🇹 Descrizione
