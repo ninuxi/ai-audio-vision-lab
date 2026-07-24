@@ -10,9 +10,11 @@ all'utente su Telegram.
 
 import asyncio
 import hashlib
+import http.server
 import json
 import logging
 import os
+import threading
 import time
 
 from google import genai
@@ -900,7 +902,33 @@ async def handle_save_favorite(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer(i18n.t(language, "favorite_saved"), show_alert=False)
 
 
+class _HealthCheckHandler(http.server.BaseHTTPRequestHandler):
+    """Risponde 200 "ok" a qualunque GET: serve solo a far vedere a Render
+    che il servizio e' vivo (Web Service Free spegne chi non risponde a un
+    health check HTTP entro il timeout di avvio), il bot vero e proprio
+    resta in polling Telegram, non HTTP."""
+
+    def do_GET(self) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"ok")
+
+    def log_message(self, format: str, *args) -> None:
+        pass
+
+
+def start_health_check_server() -> None:
+    port = int(os.environ.get("PORT", "8080"))
+    server = http.server.ThreadingHTTPServer(("0.0.0.0", port), _HealthCheckHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    logger.info("Health check HTTP in ascolto su 0.0.0.0:%d", port)
+
+
 def main() -> None:
+    start_health_check_server()
+
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", handle_start))
