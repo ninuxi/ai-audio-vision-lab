@@ -1,3 +1,4 @@
+<img width="1536" height="946" alt="git_audiofoto" src="https://github.com/user-attachments/assets/77c30683-2289-476d-9a0b-96c597a4f27f" />
 # 🎛️ AI Audio Vision Lab
 
 ![Python](https://img.shields.io/badge/python-3.11-blue.svg)
