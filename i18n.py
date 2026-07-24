@@ -21,13 +21,16 @@ STRINGS = {
             "come faresti con chiunque altro.\n\n"
             "Poi: guardo la scena, ti chiedo che aria darle, scrivo la musica, "
             "te la mando come file audio. Ci vuole circa un minuto.\n\n"
-            "Hai 5 foto al giorno. Cominciamo?"
+            "È uno strumento condiviso: ogni tanto la musica del giorno "
+            "finisce, in quel caso si riparte il giorno dopo. Cominciamo?"
         ),
         "need_language_first": (
             "Prima scegli la lingua qui sotto, poi rimandami la foto. / "
             "Pick a language below first, then send me the photo again."
         ),
-        "rate_limit_exceeded": "Hai già usato le tue 5 foto di oggi. Torna domani.",
+        "daily_budget_exhausted": (
+            "Per oggi ho già scritto tutta la musica che potevo. Torna domani."
+        ),
         "photo_received": "Foto ricevuta. Le do un'occhiata.",
         "analyzing_scene": "Sto guardando la scena, un minuto.",
         "choose_mood": "Che aria vuoi dare a questa scena?",
@@ -78,13 +81,16 @@ STRINGS = {
             "same as you would with anyone else.\n\n"
             "Then: I look at the scene, ask what mood you want, write the "
             "music, send it back as an audio file. Takes about a minute.\n\n"
-            "You get 5 photos a day. Ready?"
+            "It's a shared tool: sometimes the day's music runs out, and "
+            "we pick back up the next day. Ready?"
         ),
         "need_language_first": (
             "Prima scegli la lingua qui sotto, poi rimandami la foto. / "
             "Pick a language below first, then send me the photo again."
         ),
-        "rate_limit_exceeded": "You've used your 5 photos for today. Come back tomorrow.",
+        "daily_budget_exhausted": (
+            "I've written all the music I can for today. Come back tomorrow."
+        ),
         "photo_received": "Photo received. Let me take a look.",
         "analyzing_scene": "Looking at the scene, one moment.",
         "choose_mood": "What mood should this scene take?",

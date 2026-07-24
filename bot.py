@@ -15,6 +15,7 @@ import logging
 import os
 
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 from pythonosc.udp_client import SimpleUDPClient
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -39,7 +40,7 @@ logger = logging.getLogger("ai_audio_vision_bot")
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 if not TELEGRAM_BOT_TOKEN:
     raise RuntimeError("Variabile d'ambiente TELEGRAM_BOT_TOKEN mancante.")
@@ -47,6 +48,21 @@ if not GEMINI_API_KEY:
     raise RuntimeError("Variabile d'ambiente GEMINI_API_KEY mancante.")
 
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+
+# Budget giornaliero CONDIVISO da tutti gli utenti, in CHIAMATE Gemini
+# singole (non foto: una foto ne costa 2-3 a seconda del percorso, vedi
+# call_gemini_tracked()). Calcolato dalla quota reale del modello scelto
+# sopra, non da una stima: valori confermati dalla dashboard Google AI
+# Studio del progetto per gemini-3.5-flash-lite (default): RPD 500. Se
+# cambi GEMINI_MODEL, aggiorna anche GEMINI_MODEL_RPD di conseguenza.
+# Margine di sicurezza 80% per lasciare spazio a retry su errori
+# transitori (es. i 503 "high demand" gia' visti). Il contatore locale è
+# solo una stima preventiva: il segnale autorevole resta la risposta 429
+# di Gemini stessa, gestita in call_gemini_tracked() indipendentemente da
+# cosa dice questo contatore (vedi anche storage.py).
+GEMINI_MODEL_RPD = int(os.environ.get("GEMINI_MODEL_RPD", "500"))
+QUOTA_SAFETY_MARGIN = float(os.environ.get("QUOTA_SAFETY_MARGIN", "0.8"))
+DAILY_GEMINI_CALL_BUDGET = max(1, int(GEMINI_MODEL_RPD * QUOTA_SAFETY_MARGIN))
 
 # Pd (main.pd) ascolta OSC su questa porta. WAV e flag di completamento
 # usano nomi FISSI (non uno per render): main.pd li ha hardcoded agli stessi
@@ -93,28 +109,6 @@ VISION_REQUIRED_FIELDS = [
     "texture",
 ]
 
-COMPOSITION_PROMPT_TEMPLATE = (
-    "Sei un compositore. Data questa descrizione JSON di una scena, "
-    "traducila in un piano compositivo musicale in JSON con campi: "
-    "scala (modo/scala musicale), tempo (BPM, numero), forma (struttura "
-    "del brano), densita (densità delle voci), timbrica (lista di timbri/"
-    "strumenti), dinamica (andamento dinamico). Solo JSON. Ogni campo "
-    "deve essere una stringa, un numero, o una lista di stringhe, mai un "
-    "oggetto annidato.\n\n"
-    "Direzione emotiva richiesta dalla persona: {mood_hint}.\n\n"
-    "{variation_note}"
-    "Descrizione scena:\n{scene_json}"
-)
-
-COMPOSITION_REQUIRED_FIELDS = [
-    "scala",
-    "tempo",
-    "forma",
-    "densita",
-    "timbrica",
-    "dinamica",
-]
-
 # Frasi iniettate nel prompt del piano compositivo in base al bottone scelto
 # dall'utente (vedi i18n.MOOD_KEYS per le etichette mostrate nei bottoni).
 MOOD_PROMPT_HINTS = {
@@ -130,6 +124,48 @@ MOOD_PROMPT_HINTS = {
 
 class GeminiJSONError(Exception):
     """Sollevata quando Gemini non restituisce JSON valido o conforme allo schema."""
+
+
+class QuotaExhaustedError(Exception):
+    """Sollevata quando il budget Gemini per oggi è esaurito: o perché il
+    contatore locale (stima preventiva) l'ha già segnalato, o perché
+    Gemini stesso ha appena risposto 429 (segnale autorevole, vedi
+    call_gemini_tracked). Il chiamante deve interrompere la pipeline."""
+
+
+def _is_quota_exhausted(exc: Exception) -> bool:
+    return isinstance(exc, genai_errors.APIError) and exc.code == 429
+
+
+async def call_gemini_tracked(func, *args):
+    """Controlla e consuma 1 unità dal budget Gemini condiviso, poi chiama
+    func(*args) in un thread (tutte le funzioni che parlano con Gemini in
+    questo file sono sincrone). Un incremento per ogni chiamata reale,
+    fatto qui prima della chiamata stessa -- non un conteggio per foto a
+    fine pipeline.
+
+    Se il contatore locale segna già esaurito, solleva subito
+    QuotaExhaustedError senza nemmeno provare la chiamata. Se invece è
+    Gemini a rispondere 429, quello è il segnale vero (il contatore locale
+    è solo una stima preventiva, può essere disallineato da un restart):
+    blocchiamo il resto della finestra odierna via storage.mark_quota_blocked
+    e solleviamo comunque QuotaExhaustedError.
+    """
+    allowed = await storage.check_and_consume_global_quota(DAILY_GEMINI_CALL_BUDGET)
+    if not allowed:
+        raise QuotaExhaustedError()
+    try:
+        return await asyncio.to_thread(func, *args)
+    except Exception as e:
+        if _is_quota_exhausted(e):
+            logger.warning(
+                "Gemini ha risposto 429: quota reale esaurita, blocco il resto "
+                "della finestra odierna (Pacific Time) indipendentemente dal "
+                "contatore locale."
+            )
+            await storage.mark_quota_blocked()
+            raise QuotaExhaustedError() from e
+        raise
 
 
 def _strip_markdown_fence(text: str) -> str:
@@ -200,44 +236,32 @@ def describe_scene(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
     )
 
 
-def plan_composition(scene: dict, mood_key: str, previous_plan: dict | None = None) -> dict:
-    """Secondo passaggio Gemini: JSON descrittivo -> JSON piano compositivo.
-
-    previous_plan, se presente (caso "rigenera con variazione"), viene
-    passato come piano da NON ripetere, per ottenere scelte musicali
-    diverse a parità di scena e di direzione emotiva.
-    """
-    variation_note = ""
-    if previous_plan is not None:
-        variation_note = (
-            "Genera una variazione DIVERSA dal piano precedente: stessa "
-            "scena e stessa direzione emotiva, ma scelte musicali differenti "
-            "(scala, forma, timbrica, dinamica). Piano precedente da NON "
-            f"ripetere:\n{json.dumps(previous_plan, ensure_ascii=False)}\n\n"
-        )
-    prompt = COMPOSITION_PROMPT_TEMPLATE.format(
-        scene_json=json.dumps(scene, ensure_ascii=False),
-        mood_hint=MOOD_PROMPT_HINTS[mood_key],
-        variation_note=variation_note,
-    )
-    response = gemini_client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-    )
-    return _parse_and_validate(
-        response.text, lambda obj: _valida_schema(obj, COMPOSITION_REQUIRED_FIELDS)
-    )
-
-
 VOICE_OSC_TYPES = {"sine", "saw", "square", "fm"}
 
-SYNTH_PROMPT_TEMPLATE = (
-    "Traduci questo piano compositivo musicale in parametri numerici per un "
-    "motore di sintesi Pure Data, in JSON con campi:\n"
+# Piano compositivo e parametri di sintesi in UNA sola chiamata Gemini
+# (erano due passaggi separati: la quota gratuita di Gemini è troppo
+# stretta per permettersi una chiamata Gemini in più per foto). Il
+# risultato serve sia come "plan" descrittivo (usato da narrate_result e
+# da score_generator per il campo forma) sia come "synth_params" numerico
+# per Pd: stesso dizionario, nessun campo perso rispetto ai due passaggi
+# precedenti, solo il "tempo" descrittivo del vecchio piano è stato tolto
+# perché ridondante con tempo_bpm (chiedevano la stessa cosa due volte).
+COMBINED_PROMPT_TEMPLATE = (
+    "Sei un compositore e sound designer. Data questa descrizione JSON di "
+    "una scena, produci in un'UNICA risposta JSON sia il piano compositivo "
+    "descrittivo sia i parametri numerici per un motore di sintesi Pure "
+    "Data. Campi richiesti, tutti nello stesso oggetto JSON:\n\n"
+    "Descrittivi:\n"
+    "- scala: modo/scala musicale (stringa)\n"
+    "- forma: struttura del brano, es. \"A-B-A'-Coda\" (stringa)\n"
+    "- densita: densità delle voci (stringa)\n"
+    "- timbrica: lista di timbri/strumenti (lista di stringhe)\n"
+    "- dinamica: andamento dinamico (stringa)\n\n"
+    "Numerici (per Pd):\n"
     "- scale_root: nota MIDI della fondamentale (numero 0-127, es. 60 = Do "
     "centrale)\n"
     "- scale_intervals: lista di 2-12 numeri (semitoni dalla fondamentale, "
-    "0-24) che definiscono la scala/modo\n"
+    "0-24) che definiscono la scala/modo, coerenti con \"scala\"\n"
     "- tempo_bpm: numero 20-300\n"
     "- voices: lista di 1-3 voci, ciascuna oggetto con i campi: osc_type "
     '(una stringa tra "sine", "saw", "square", "fm"), freq_offset (numero, '
@@ -251,8 +275,12 @@ SYNTH_PROMPT_TEMPLATE = (
     "non descrive il brano in astratto)\n\n"
     "Solo JSON, nessun testo fuori dal JSON, nessun campo in più oltre a "
     "quelli elencati.\n\n"
-    "Piano compositivo:\n{plan_json}"
+    "Direzione emotiva richiesta dalla persona: {mood_hint}.\n\n"
+    "{variation_note}"
+    "Descrizione scena:\n{scene_json}"
 )
+
+COMBINED_DESCRITTIVI_REQUIRED_FIELDS = ["scala", "forma", "densita", "timbrica", "dinamica"]
 
 
 def _numero_in_range(v, lo, hi) -> bool:
@@ -276,11 +304,15 @@ def _valida_voce(v) -> tuple[bool, str]:
     return True, ""
 
 
-def _valida_synth_params(obj) -> tuple[bool, str]:
+def _valida_combined(obj) -> tuple[bool, str]:
     if not isinstance(obj, dict):
         return False, "la risposta non è un oggetto JSON di primo livello"
 
-    richiesti = [
+    ok, errore = _valida_schema(obj, COMBINED_DESCRITTIVI_REQUIRED_FIELDS)
+    if not ok:
+        return False, errore
+
+    richiesti_numerici = [
         "scale_root",
         "scale_intervals",
         "tempo_bpm",
@@ -289,7 +321,7 @@ def _valida_synth_params(obj) -> tuple[bool, str]:
         "duration_seconds",
         "rhythm_density",
     ]
-    mancanti = [k for k in richiesti if k not in obj]
+    mancanti = [k for k in richiesti_numerici if k not in obj]
     if mancanti:
         return False, f"campi mancanti: {', '.join(mancanti)}"
 
@@ -325,16 +357,39 @@ def _valida_synth_params(obj) -> tuple[bool, str]:
     return True, ""
 
 
-def plan_to_synth_params(plan: dict) -> dict:
-    """Terzo passaggio Gemini: JSON piano compositivo -> parametri numerici per Pd."""
-    prompt = SYNTH_PROMPT_TEMPLATE.format(
-        plan_json=json.dumps(plan, ensure_ascii=False)
+def plan_composition_and_synth(
+    scene: dict, mood_key: str, previous_plan: dict | None = None
+) -> dict:
+    """Secondo passaggio Gemini (accorpato): JSON descrittivo della scena ->
+    UN JSON che contiene sia il piano compositivo descrittivo sia i
+    parametri numerici di sintesi per Pd. Il dizionario risultante viene
+    usato sia come "plan" (narrazione, forma per score_generator) sia come
+    "synth_params" (invio OSC a Pd): stessa struttura, nessun passaggio
+    Gemini separato.
+
+    previous_plan, se presente (caso "rigenera con variazione"), viene
+    passato come piano da NON ripetere, per ottenere scelte musicali
+    diverse a parità di scena e di direzione emotiva.
+    """
+    variation_note = ""
+    if previous_plan is not None:
+        variation_note = (
+            "Genera una variazione DIVERSA dal piano precedente: stessa "
+            "scena e stessa direzione emotiva, ma scelte musicali differenti "
+            "(scala, forma, timbrica, dinamica, scale_intervals, voices). "
+            "Piano precedente da NON ripetere:\n"
+            f"{json.dumps(previous_plan, ensure_ascii=False)}\n\n"
+        )
+    prompt = COMBINED_PROMPT_TEMPLATE.format(
+        scene_json=json.dumps(scene, ensure_ascii=False),
+        mood_hint=MOOD_PROMPT_HINTS[mood_key],
+        variation_note=variation_note,
     )
     response = gemini_client.models.generate_content(
         model=GEMINI_MODEL,
         contents=prompt,
     )
-    return _parse_and_validate(response.text, _valida_synth_params)
+    return _parse_and_validate(response.text, _valida_combined)
 
 
 NARRATE_PROMPT_TEMPLATE = (
@@ -536,34 +591,30 @@ async def run_composition_and_finish(
     previous_plan: dict | None = None,
 ) -> None:
     """Dal JSON scena (già ottenuto) fino all'invio dell'audio: piano
-    compositivo, parametri di sintesi, render via Pd, narrazione poetica.
+    compositivo + parametri di sintesi (una sola chiamata Gemini, vedi
+    plan_composition_and_synth), render via Pd, narrazione poetica.
     Condivisa tra il flusso normale (dopo la scelta dell'umore) e la
     rigenerazione (stessa scena, piano nuovo).
     """
     try:
-        plan = await asyncio.to_thread(plan_composition, scene, mood_key, previous_plan)
+        plan = await call_gemini_tracked(
+            plan_composition_and_synth, scene, mood_key, previous_plan
+        )
+    except QuotaExhaustedError:
+        await status_message.edit_text(i18n.t(language, "daily_budget_exhausted"))
+        return
     except GeminiJSONError as e:
-        logger.warning("Piano compositivo non valido: %s", e)
+        logger.warning("Piano compositivo/sintesi non valido: %s", e)
         await status_message.edit_text(i18n.t(language, "error_plan_invalid"))
         return
     except Exception:
-        logger.exception("Errore chiamando Gemini per il piano compositivo")
+        logger.exception("Errore chiamando Gemini per piano compositivo/sintesi")
         await status_message.edit_text(i18n.t(language, "error_plan_service"))
         return
 
     await status_message.edit_text(i18n.t(language, "synthesizing"))
 
-    try:
-        synth_params = await asyncio.to_thread(plan_to_synth_params, plan)
-    except GeminiJSONError as e:
-        logger.warning("Parametri di sintesi non validi: %s", e)
-        await status_message.edit_text(i18n.t(language, "error_synth_invalid"))
-        return
-    except Exception:
-        logger.exception("Errore chiamando Gemini per i parametri di sintesi")
-        await status_message.edit_text(i18n.t(language, "error_synth_service"))
-        return
-
+    synth_params = plan  # stesso dizionario: descrittivo + numerico insieme
     seed = compute_seed(scene, plan)
     score = score_generator.generate_score(synth_params, plan, seed)
 
@@ -577,9 +628,19 @@ async def run_composition_and_finish(
             wav_path = await wait_for_generated_audio()
             try:
                 try:
-                    caption = await asyncio.to_thread(
+                    caption = await call_gemini_tracked(
                         narrate_result, scene, plan, mood_key, language
                     )
+                except QuotaExhaustedError:
+                    # L'audio è già pronto: niente messaggio di budget
+                    # esaurito qui, degradiamo in silenzio alla didascalia
+                    # di fallback invece di negare un risultato che
+                    # abbiamo già prodotto.
+                    logger.info(
+                        "Budget Gemini esaurito durante la narrazione: uso "
+                        "la didascalia di fallback"
+                    )
+                    caption = i18n.t(language, "done_fallback_caption")
                 except Exception:
                     logger.exception("Errore generando la narrazione poetica")
                     caption = i18n.t(language, "done_fallback_caption")
@@ -621,11 +682,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         return
 
-    allowed = await storage.check_and_consume_quota(user.id)
-    if not allowed:
-        await message.reply_text(i18n.t(language, "rate_limit_exceeded"))
-        return
-
     context.user_data["language"] = language
 
     status_message = await message.reply_text(i18n.t(language, "photo_received"))
@@ -637,7 +693,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await status_message.edit_text(i18n.t(language, "analyzing_scene"))
 
     try:
-        scene = await asyncio.to_thread(describe_scene, image_bytes)
+        scene = await call_gemini_tracked(describe_scene, image_bytes)
+    except QuotaExhaustedError:
+        await status_message.edit_text(i18n.t(language, "daily_budget_exhausted"))
+        return
     except GeminiJSONError as e:
         logger.warning("Descrizione scena non valida: %s", e)
         await status_message.edit_text(i18n.t(language, "error_vision_invalid"))
@@ -707,11 +766,6 @@ async def handle_regenerate(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     if scene is None or mood_key is None:
         await query.message.reply_text(i18n.t(language, "error_session_expired"))
-        return
-
-    allowed = await storage.check_and_consume_quota(update.effective_user.id)
-    if not allowed:
-        await query.message.reply_text(i18n.t(language, "rate_limit_exceeded"))
         return
 
     status_message = await query.message.reply_text(i18n.t(language, "regenerating"))
