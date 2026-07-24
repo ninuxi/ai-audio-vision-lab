@@ -523,11 +523,11 @@ def send_plan_to_pd(synth_params: dict, score: dict, req_id: str = "-") -> None:
     frequenza (che usa anche inharmonicity per il detune), quindi
     inharmonicity deve essere già stato ricevuto.
 
-    /duration_seconds usa score["effective_duration_seconds"] (il tetto di
-    score_generator.MAX_DURATION_SECONDS), non synth_params["duration_seconds"]
-    grezzo di Gemini: e' il timer di stop della registrazione in Pd, deve
-    combaciare con quanto pattern e' stato davvero generato, non con la
-    durata originale eventualmente più lunga.
+    /duration_seconds usa score.get("effective_duration_seconds", ...) con
+    fallback su synth_params["duration_seconds"]: la chiave "capata" (tetto
+    score_generator.MAX_DURATION_SECONDS) arriva solo insieme al lavoro
+    musicale non ancora committato, il fallback e' il valore grezzo di
+    Gemini usato dalla versione di score_generator.py oggi in produzione.
     """
     t0 = _log_start(req_id, "fase4_invio_osc_pd")
     pd_client.send_message("/scale_root", synth_params["scale_root"])
@@ -547,7 +547,17 @@ def send_plan_to_pd(synth_params: dict, score: dict, req_id: str = "-") -> None:
         pd_client.send_message(f"/voice/{i}/freq_offset", voice["freq_offset"])
 
     pd_client.send_message("/reverb_mix", synth_params["reverb_mix"])
-    pd_client.send_message("/duration_seconds", score["effective_duration_seconds"])
+    # score_generator.py in produzione (origin/main) non produce ancora
+    # "effective_duration_seconds" (arriva insieme al lavoro musicale non
+    # ancora committato: micro-timing/velocity/ghost note). Fallback su
+    # synth_params["duration_seconds"], il valore grezzo di Gemini usato
+    # prima di quel lavoro, cosi' non esplode un KeyError in produzione.
+    # Quando score_generator.py verra' committato con quella chiave, questa
+    # riga la user automaticamente senza bisogno di toccarla di nuovo.
+    pd_client.send_message(
+        "/duration_seconds",
+        score.get("effective_duration_seconds", synth_params["duration_seconds"]),
+    )
 
     send_score_to_pd(score)
 
@@ -582,19 +592,32 @@ def send_score_to_pd(score: dict) -> None:
     Ognuno scritto nella sua table via onset+chunk. Va chiamato PRIMA di
     /render/start, che main.pd usa come segnale "i pattern sono pronti,
     si parte"."""
+    # score_generator.py in produzione (origin/main) non produce ancora gli
+    # array *_timing/*_velocity (arrivano insieme al lavoro musicale non
+    # ancora committato). Ogni invio e' condizionato alla presenza della
+    # chiave, cosi' non esplode oggi e riparte da solo, senza toccare
+    # bot.py di nuovo, quando quel lavoro verra' committato.
     pd_client.send_message("/score/total_steps", score["total_steps"])
     _send_pattern_chunked("/melody", score["melody"])
-    _send_pattern_chunked("/melody/timing", score["melody_timing"])
-    _send_pattern_chunked("/melody/velocity", score["melody_velocity"])
+    if "melody_timing" in score:
+        _send_pattern_chunked("/melody/timing", score["melody_timing"])
+    if "melody_velocity" in score:
+        _send_pattern_chunked("/melody/velocity", score["melody_velocity"])
     _send_pattern_chunked("/bass", score["bass"])
-    _send_pattern_chunked("/bass/timing", score["bass_timing"])
-    _send_pattern_chunked("/bass/velocity", score["bass_velocity"])
+    if "bass_timing" in score:
+        _send_pattern_chunked("/bass/timing", score["bass_timing"])
+    if "bass_velocity" in score:
+        _send_pattern_chunked("/bass/velocity", score["bass_velocity"])
     _send_pattern_chunked("/drums/kick", score["kick"])
-    _send_pattern_chunked("/drums/kick/timing", score["kick_timing"])
-    _send_pattern_chunked("/drums/kick/velocity", score["kick_velocity"])
+    if "kick_timing" in score:
+        _send_pattern_chunked("/drums/kick/timing", score["kick_timing"])
+    if "kick_velocity" in score:
+        _send_pattern_chunked("/drums/kick/velocity", score["kick_velocity"])
     _send_pattern_chunked("/drums/hat", score["hat"])
-    _send_pattern_chunked("/drums/hat/timing", score["hat_timing"])
-    _send_pattern_chunked("/drums/hat/velocity", score["hat_velocity"])
+    if "hat_timing" in score:
+        _send_pattern_chunked("/drums/hat/timing", score["hat_timing"])
+    if "hat_velocity" in score:
+        _send_pattern_chunked("/drums/hat/velocity", score["hat_velocity"])
 
 
 async def wait_for_generated_audio(req_id: str = "-") -> str:
