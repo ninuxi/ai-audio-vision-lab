@@ -1,6 +1,9 @@
 # AI Audio Vision Lab - .gitignore
 # Protects proprietary code and sensitive data from accidental commits
 
+# Chiavi SSH di un'infrastruttura Oracle Cloud abbandonata (vedi decisioni.md)
+oracle/
+
 # ============================================================================
 # CRITICAL: PROPRIETARY MODELS AND WEIGHTS - NEVER COMMIT
 # ============================================================================
