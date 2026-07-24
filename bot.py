@@ -28,6 +28,7 @@ from telegram.ext import (
 )
 
 import i18n
+import score_generator
 import storage
 
 logging.basicConfig(
@@ -244,7 +245,10 @@ SYNTH_PROMPT_TEMPLATE = (
     "frazionario), amplitude (numero 0-1), inharmonicity (numero 0-1)\n"
     "- reverb_mix: numero 0-1 (quantità di riverbero)\n"
     "- duration_seconds: numero 5-120 (durata del brano; per una prima "
-    "prova preferisci un valore tra 20 e 30)\n\n"
+    "prova preferisci un valore tra 20 e 30)\n"
+    "- rhythm_density: numero 0-1 (densità ritmica: 0 = rado e spoglio, "
+    "1 = fitto e insistito; guida il generatore di pattern percussivi, "
+    "non descrive il brano in astratto)\n\n"
     "Solo JSON, nessun testo fuori dal JSON, nessun campo in più oltre a "
     "quelli elencati.\n\n"
     "Piano compositivo:\n{plan_json}"
@@ -283,6 +287,7 @@ def _valida_synth_params(obj) -> tuple[bool, str]:
         "voices",
         "reverb_mix",
         "duration_seconds",
+        "rhythm_density",
     ]
     mancanti = [k for k in richiesti if k not in obj]
     if mancanti:
@@ -313,6 +318,9 @@ def _valida_synth_params(obj) -> tuple[bool, str]:
 
     if not _numero_in_range(obj["duration_seconds"], 5, 120):
         return False, "duration_seconds fuori range (atteso 5-120)"
+
+    if not _numero_in_range(obj["rhythm_density"], 0, 1):
+        return False, "rhythm_density fuori range (atteso 0-1)"
 
     return True, ""
 
@@ -385,11 +393,14 @@ def compute_seed(scene: dict, plan: dict) -> str:
 DEFAULT_VOICE = {"osc_type": "sine", "freq_offset": 0, "amplitude": 0.0, "inharmonicity": 0.0}
 
 
-def send_plan_to_pd(synth_params: dict) -> None:
-    """Invia i parametri di sintesi a Pd via OSC. Indirizzi attesi da main.pd:
-    /scale_root, /scale_intervals, /tempo_bpm, /voice/<1-3>/{type,amplitude,
-    inharmonicity,freq_offset}, /reverb_mix, /duration_seconds, /render/start
-    (bang finale che avvia la registrazione).
+def send_plan_to_pd(synth_params: dict, score: dict) -> None:
+    """Invia i parametri di sintesi e la partitura (score_generator) a Pd
+    via OSC. Indirizzi attesi da main.pd: /scale_root, /scale_intervals,
+    /tempo_bpm, /voice/<1-3>/{type,amplitude,inharmonicity,freq_offset},
+    /reverb_mix, /duration_seconds, /score/total_steps, /melody/*, /bass/*,
+    /drums/kick/*, /drums/hat/*, /render/start (bang finale che avvia la
+    registrazione, va mandato per ultimo: main.pd lo usa come segnale che
+    tutti i pattern sono gia' stati scritti).
 
     Dentro ogni voce, "inharmonicity" va inviato PRIMA di "freq_offset":
     in main.pd, l'arrivo di freq_offset innesca subito il calcolo della
@@ -414,7 +425,41 @@ def send_plan_to_pd(synth_params: dict) -> None:
 
     pd_client.send_message("/reverb_mix", synth_params["reverb_mix"])
     pd_client.send_message("/duration_seconds", synth_params["duration_seconds"])
+
+    send_score_to_pd(score)
+
     pd_client.send_message("/render/start", 1)
+
+
+# Taglia dei blocchi per l'invio dei pattern via OSC. Verificato
+# empiricamente: un singolo datagram UDP su questa macchina rifiuta oltre
+# ~1839 float (limite del socket, non di Pd). 500 tiene ampio margine su
+# qualunque piattaforma, incluso il container Linux di produzione, senza
+# fare assunzioni sul suo limite specifico.
+PATTERN_CHUNK_SIZE = 500
+
+
+def _send_pattern_chunked(address_prefix: str, values: list[int]) -> None:
+    """Scrive una sequenza in una table di Pd a blocchi, via
+    "<prefix>/onset <indice>" seguito da "<prefix>/chunk <valori...>",
+    ripetuto finche' la sequenza non e' interamente scritta. Verificato
+    empiricamente byte-per-byte sui bordi tra un blocco e l'altro."""
+    for start in range(0, len(values), PATTERN_CHUNK_SIZE):
+        chunk = values[start : start + PATTERN_CHUNK_SIZE]
+        pd_client.send_message(f"{address_prefix}/onset", start)
+        pd_client.send_message(f"{address_prefix}/chunk", chunk)
+
+
+def send_score_to_pd(score: dict) -> None:
+    """Invia la partitura generata (vedi score_generator.generate_score) a
+    Pd: numero di step totali e i quattro pattern piatti, ciascuno scritto
+    nella sua table via onset+chunk. Va chiamato PRIMA di /render/start,
+    che main.pd usa come segnale "i pattern sono pronti, si parte"."""
+    pd_client.send_message("/score/total_steps", score["total_steps"])
+    _send_pattern_chunked("/melody", score["melody"])
+    _send_pattern_chunked("/bass", score["bass"])
+    _send_pattern_chunked("/drums/kick", score["kick"])
+    _send_pattern_chunked("/drums/hat", score["hat"])
 
 
 async def wait_for_generated_audio() -> str:
@@ -520,6 +565,7 @@ async def run_composition_and_finish(
         return
 
     seed = compute_seed(scene, plan)
+    score = score_generator.generate_score(synth_params, plan, seed)
 
     # L'intera sezione critica (invio OSC, attesa, lettura e invio del file,
     # cleanup) resta dentro il lock: Pd scrive sempre sullo stesso path
@@ -527,7 +573,7 @@ async def run_composition_and_finish(
     # anche finito di leggere/inviare/ripulire il proprio file.
     try:
         async with pd_render_lock:
-            send_plan_to_pd(synth_params)
+            send_plan_to_pd(synth_params, score)
             wav_path = await wait_for_generated_audio()
             try:
                 try:
