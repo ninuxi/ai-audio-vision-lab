@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 
 from google import genai
 from google.genai import errors as genai_errors
@@ -38,6 +39,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ai_audio_vision_bot")
 
+# Strumentazione: ogni fase della pipeline (per una singola foto) logga un
+# INFO all'inizio e uno alla fine con la durata, prefissati da req_id per
+# poter correlare le righe di una stessa pipeline anche se piu' utenti
+# usano il bot in contemporanea. Vedi handle_photo per la creazione di
+# req_id e la sua propagazione fino a narrate_result/invio Telegram.
+def _t() -> float:
+    return time.monotonic()
+
+
+def _log_start(req_id: str, phase: str) -> float:
+    t0 = _t()
+    logger.info("[%s] %s: inizio", req_id, phase)
+    return t0
+
+
+def _log_end(req_id: str, phase: str, t0: float, extra: str = "") -> None:
+    duration = _t() - t0
+    suffix = f" ({extra})" if extra else ""
+    logger.info("[%s] %s: fine, durata=%.2fs%s", req_id, phase, duration, suffix)
+
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
@@ -47,7 +68,18 @@ if not TELEGRAM_BOT_TOKEN:
 if not GEMINI_API_KEY:
     raise RuntimeError("Variabile d'ambiente GEMINI_API_KEY mancante.")
 
-gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+# L'SDK non ha un timeout di default: se Gemini non risponde affatto (visto
+# empiricamente con gemini-3.5-flash-lite + immagine, verosimilmente
+# correlato agli stessi 429/503 "high demand" osservati su altri modelli),
+# la chiamata resta appesa indefinitamente e nessuna eccezione arriva a
+# call_gemini_tracked -- l'utente resta con "sto guardando la scena" per
+# sempre. Minimo consentito dall'API: 10s.
+GEMINI_REQUEST_TIMEOUT_SECONDS = float(os.environ.get("GEMINI_REQUEST_TIMEOUT_SECONDS", "30"))
+
+gemini_client = genai.Client(
+    api_key=GEMINI_API_KEY,
+    http_options=types.HttpOptions(timeout=int(GEMINI_REQUEST_TIMEOUT_SECONDS * 1000)),
+)
 
 # Budget giornaliero CONDIVISO da tutti gli utenti, in CHIAMATE Gemini
 # singole (non foto: una foto ne costa 2-3 a seconda del percorso, vedi
@@ -137,7 +169,7 @@ def _is_quota_exhausted(exc: Exception) -> bool:
     return isinstance(exc, genai_errors.APIError) and exc.code == 429
 
 
-async def call_gemini_tracked(func, *args):
+async def call_gemini_tracked(func, *args, req_id: str = "-", phase: str = "gemini_call"):
     """Controlla e consuma 1 unità dal budget Gemini condiviso, poi chiama
     func(*args) in un thread (tutte le funzioni che parlano con Gemini in
     questo file sono sincrone). Un incremento per ogni chiamata reale,
@@ -150,22 +182,49 @@ async def call_gemini_tracked(func, *args):
     è solo una stima preventiva, può essere disallineato da un restart):
     blocchiamo il resto della finestra odierna via storage.mark_quota_blocked
     e solleviamo comunque QuotaExhaustedError.
+
+    req_id/phase sono solo per strumentazione (timestamp+durata nei log,
+    vedi _log_start/_log_end): non cambiano il comportamento. "retry=0" nel
+    log di fine è fisso perché al momento non esiste alcun ciclo di retry
+    in questa funzione né nel client Gemini (nessuna chiamata viene
+    ritentata automaticamente) -- il campo è pronto per quando/se un retry
+    verrà aggiunto, ma oggi è sempre 0.
     """
     allowed = await storage.check_and_consume_global_quota(DAILY_GEMINI_CALL_BUDGET)
     if not allowed:
+        logger.info(
+            "[%s] %s: budget locale già esaurito, chiamata Gemini non tentata",
+            req_id, phase,
+        )
         raise QuotaExhaustedError()
+
+    t0 = _log_start(req_id, phase)
     try:
-        return await asyncio.to_thread(func, *args)
+        result = await asyncio.to_thread(func, *args)
     except Exception as e:
+        duration = _t() - t0
+        if isinstance(e, genai_errors.APIError):
+            logger.warning(
+                "[%s] %s: chiamata Gemini fallita dopo %.2fs, HTTP %s status=%s: %s",
+                req_id, phase, duration, e.code, e.status, e.details,
+            )
+        else:
+            logger.warning(
+                "[%s] %s: chiamata Gemini fallita dopo %.2fs: %s",
+                req_id, phase, duration, e,
+            )
         if _is_quota_exhausted(e):
             logger.warning(
-                "Gemini ha risposto 429: quota reale esaurita, blocco il resto "
-                "della finestra odierna (Pacific Time) indipendentemente dal "
-                "contatore locale."
+                "[%s] %s: Gemini ha risposto 429, quota reale esaurita, blocco "
+                "il resto della finestra odierna (Pacific Time) "
+                "indipendentemente dal contatore locale.",
+                req_id, phase,
             )
             await storage.mark_quota_blocked()
             raise QuotaExhaustedError() from e
         raise
+    _log_end(req_id, phase, t0, extra="retry=0")
+    return result
 
 
 def _strip_markdown_fence(text: str) -> str:
@@ -448,7 +507,7 @@ def compute_seed(scene: dict, plan: dict) -> str:
 DEFAULT_VOICE = {"osc_type": "sine", "freq_offset": 0, "amplitude": 0.0, "inharmonicity": 0.0}
 
 
-def send_plan_to_pd(synth_params: dict, score: dict) -> None:
+def send_plan_to_pd(synth_params: dict, score: dict, req_id: str = "-") -> None:
     """Invia i parametri di sintesi e la partitura (score_generator) a Pd
     via OSC. Indirizzi attesi da main.pd: /scale_root, /scale_intervals,
     /tempo_bpm, /voice/<1-3>/{type,amplitude,inharmonicity,freq_offset},
@@ -461,7 +520,14 @@ def send_plan_to_pd(synth_params: dict, score: dict) -> None:
     in main.pd, l'arrivo di freq_offset innesca subito il calcolo della
     frequenza (che usa anche inharmonicity per il detune), quindi
     inharmonicity deve essere già stato ricevuto.
+
+    /duration_seconds usa score["effective_duration_seconds"] (il tetto di
+    score_generator.MAX_DURATION_SECONDS), non synth_params["duration_seconds"]
+    grezzo di Gemini: e' il timer di stop della registrazione in Pd, deve
+    combaciare con quanto pattern e' stato davvero generato, non con la
+    durata originale eventualmente più lunga.
     """
+    t0 = _log_start(req_id, "fase4_invio_osc_pd")
     pd_client.send_message("/scale_root", synth_params["scale_root"])
     pd_client.send_message("/scale_intervals", list(synth_params["scale_intervals"]))
     pd_client.send_message("/tempo_bpm", synth_params["tempo_bpm"])
@@ -479,11 +545,12 @@ def send_plan_to_pd(synth_params: dict, score: dict) -> None:
         pd_client.send_message(f"/voice/{i}/freq_offset", voice["freq_offset"])
 
     pd_client.send_message("/reverb_mix", synth_params["reverb_mix"])
-    pd_client.send_message("/duration_seconds", synth_params["duration_seconds"])
+    pd_client.send_message("/duration_seconds", score["effective_duration_seconds"])
 
     send_score_to_pd(score)
 
     pd_client.send_message("/render/start", 1)
+    _log_end(req_id, "fase4_invio_osc_pd", t0)
 
 
 # Taglia dei blocchi per l'invio dei pattern via OSC. Verificato
@@ -494,7 +561,7 @@ def send_plan_to_pd(synth_params: dict, score: dict) -> None:
 PATTERN_CHUNK_SIZE = 500
 
 
-def _send_pattern_chunked(address_prefix: str, values: list[int]) -> None:
+def _send_pattern_chunked(address_prefix: str, values: list[int] | list[float]) -> None:
     """Scrive una sequenza in una table di Pd a blocchi, via
     "<prefix>/onset <indice>" seguito da "<prefix>/chunk <valori...>",
     ripetuto finche' la sequenza non e' interamente scritta. Verificato
@@ -507,33 +574,48 @@ def _send_pattern_chunked(address_prefix: str, values: list[int]) -> None:
 
 def send_score_to_pd(score: dict) -> None:
     """Invia la partitura generata (vedi score_generator.generate_score) a
-    Pd: numero di step totali e i quattro pattern piatti, ciascuno scritto
-    nella sua table via onset+chunk. Va chiamato PRIMA di /render/start,
-    che main.pd usa come segnale "i pattern sono pronti, si parte"."""
+    Pd: numero di step totali, i quattro pattern piatti (note) e, per
+    ciascuna voce, i due array di espressione per singolo evento (offset
+    di micro-timing in ms e velocity 0-1) generati insieme al pattern.
+    Ognuno scritto nella sua table via onset+chunk. Va chiamato PRIMA di
+    /render/start, che main.pd usa come segnale "i pattern sono pronti,
+    si parte"."""
     pd_client.send_message("/score/total_steps", score["total_steps"])
     _send_pattern_chunked("/melody", score["melody"])
+    _send_pattern_chunked("/melody/timing", score["melody_timing"])
+    _send_pattern_chunked("/melody/velocity", score["melody_velocity"])
     _send_pattern_chunked("/bass", score["bass"])
+    _send_pattern_chunked("/bass/timing", score["bass_timing"])
+    _send_pattern_chunked("/bass/velocity", score["bass_velocity"])
     _send_pattern_chunked("/drums/kick", score["kick"])
+    _send_pattern_chunked("/drums/kick/timing", score["kick_timing"])
+    _send_pattern_chunked("/drums/kick/velocity", score["kick_velocity"])
     _send_pattern_chunked("/drums/hat", score["hat"])
+    _send_pattern_chunked("/drums/hat/timing", score["hat_timing"])
+    _send_pattern_chunked("/drums/hat/velocity", score["hat_velocity"])
 
 
-async def wait_for_generated_audio() -> str:
+async def wait_for_generated_audio(req_id: str = "-") -> str:
     """Polling del flag di completamento scritto da Pd a fine sintesi.
     Ritorna il path del WAV, o solleva TimeoutError.
     """
+    t0 = _log_start(req_id, "fase5_attesa_audio_pd")
     poll_interval = 0.5
     elapsed = 0.0
     while elapsed < PD_RENDER_TIMEOUT_SECONDS:
         if os.path.exists(PD_DONE_PATH):
             if not os.path.exists(PD_WAV_PATH):
+                _log_end(req_id, "fase5_attesa_audio_pd", t0, extra="ERRORE: .done senza .wav")
                 raise RuntimeError(
                     "Pd ha segnalato il completamento ma il file WAV atteso "
                     f"non esiste: {PD_WAV_PATH}"
                 )
+            _log_end(req_id, "fase5_attesa_audio_pd", t0, extra="file .done trovato")
             return PD_WAV_PATH
         await asyncio.sleep(poll_interval)
         elapsed += poll_interval
 
+    _log_end(req_id, "fase5_attesa_audio_pd", t0, extra="TIMEOUT")
     raise TimeoutError(
         f"Timeout ({PD_RENDER_TIMEOUT_SECONDS}s) in attesa dell'audio da Pd."
     )
@@ -588,6 +670,7 @@ async def run_composition_and_finish(
     mood_key: str,
     language: str,
     context: ContextTypes.DEFAULT_TYPE,
+    req_id: str = "-",
     previous_plan: dict | None = None,
 ) -> None:
     """Dal JSON scena (già ottenuto) fino all'invio dell'audio: piano
@@ -598,7 +681,8 @@ async def run_composition_and_finish(
     """
     try:
         plan = await call_gemini_tracked(
-            plan_composition_and_synth, scene, mood_key, previous_plan
+            plan_composition_and_synth, scene, mood_key, previous_plan,
+            req_id=req_id, phase="fase3_plan_composition_and_synth",
         )
     except QuotaExhaustedError:
         await status_message.edit_text(i18n.t(language, "daily_budget_exhausted"))
@@ -624,12 +708,13 @@ async def run_composition_and_finish(
     # anche finito di leggere/inviare/ripulire il proprio file.
     try:
         async with pd_render_lock:
-            send_plan_to_pd(synth_params, score)
-            wav_path = await wait_for_generated_audio()
+            send_plan_to_pd(synth_params, score, req_id=req_id)
+            wav_path = await wait_for_generated_audio(req_id=req_id)
             try:
                 try:
                     caption = await call_gemini_tracked(
-                        narrate_result, scene, plan, mood_key, language
+                        narrate_result, scene, plan, mood_key, language,
+                        req_id=req_id, phase="fase6_narrate_result",
                     )
                 except QuotaExhaustedError:
                     # L'audio è già pronto: niente messaggio di budget
@@ -651,6 +736,7 @@ async def run_composition_and_finish(
                 context.user_data["mood"] = mood_key
                 context.user_data["seed"] = seed
 
+                t0 = _log_start(req_id, "fase7_invio_telegram")
                 with open(wav_path, "rb") as audio_file:
                     await status_message.reply_audio(
                         audio=audio_file,
@@ -659,13 +745,14 @@ async def run_composition_and_finish(
                         reply_markup=result_keyboard(language),
                     )
                 await status_message.delete()
+                _log_end(req_id, "fase7_invio_telegram", t0)
             finally:
                 cleanup_render_files()
     except TimeoutError as e:
-        logger.warning("Timeout in attesa dell'audio da Pd: %s", e)
+        logger.warning("[%s] Timeout in attesa dell'audio da Pd: %s", req_id, e)
         await status_message.edit_text(i18n.t(language, "error_timeout"))
     except Exception:
-        logger.exception("Errore durante la sintesi o l'invio dell'audio")
+        logger.exception("[%s] Errore durante la sintesi o l'invio dell'audio", req_id)
         await status_message.edit_text(i18n.t(language, "error_audio_generic"))
 
 
@@ -675,6 +762,15 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     user = update.effective_user
+    # req_id correla nei log tutte le fasi di UNA pipeline (una foto), anche
+    # con più utenti concorrenti: salvato in user_data per essere riusato
+    # dalle fasi successive (scelta mood, rigenerazione), che arrivano in
+    # handler separati.
+    req_id = f"{user.id}-{message.message_id}"
+    context.user_data["req_id"] = req_id
+
+    t_fase1 = _log_start(req_id, "fase1_ricezione_foto")
+
     language = await storage.get_language(user.id)
     if language is None:
         await message.reply_text(
@@ -689,20 +785,23 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     photo = message.photo[-1]
     telegram_file = await photo.get_file()
     image_bytes = bytes(await telegram_file.download_as_bytearray())
+    _log_end(req_id, "fase1_ricezione_foto", t_fase1, extra=f"{len(image_bytes)} bytes")
 
     await status_message.edit_text(i18n.t(language, "analyzing_scene"))
 
     try:
-        scene = await call_gemini_tracked(describe_scene, image_bytes)
+        scene = await call_gemini_tracked(
+            describe_scene, image_bytes, req_id=req_id, phase="fase2_describe_scene"
+        )
     except QuotaExhaustedError:
         await status_message.edit_text(i18n.t(language, "daily_budget_exhausted"))
         return
     except GeminiJSONError as e:
-        logger.warning("Descrizione scena non valida: %s", e)
+        logger.warning("[%s] Descrizione scena non valida: %s", req_id, e)
         await status_message.edit_text(i18n.t(language, "error_vision_invalid"))
         return
     except Exception:
-        logger.exception("Errore chiamando Gemini per la descrizione della scena")
+        logger.exception("[%s] Errore chiamando Gemini per la descrizione della scena", req_id)
         await status_message.edit_text(i18n.t(language, "error_vision_service"))
         return
 
@@ -750,8 +849,9 @@ async def handle_mood_choice(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     context.user_data["mood"] = mood_key
+    req_id = context.user_data.get("req_id", f"{update.effective_user.id}-{status_message.message_id}")
     await status_message.edit_text(i18n.t(language, "composing"))
-    await run_composition_and_finish(status_message, scene, mood_key, language, context)
+    await run_composition_and_finish(status_message, scene, mood_key, language, context, req_id=req_id)
 
 
 async def handle_regenerate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -769,8 +869,9 @@ async def handle_regenerate(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
 
     status_message = await query.message.reply_text(i18n.t(language, "regenerating"))
+    req_id = context.user_data.get("req_id", f"{update.effective_user.id}-{status_message.message_id}") + "-regen"
     await run_composition_and_finish(
-        status_message, scene, mood_key, language, context, previous_plan=previous_plan
+        status_message, scene, mood_key, language, context, req_id=req_id, previous_plan=previous_plan
     )
 
 
