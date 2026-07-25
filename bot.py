@@ -10,11 +10,9 @@ all'utente su Telegram.
 
 import asyncio
 import hashlib
-import http.server
 import json
 import logging
 import os
-import threading
 import time
 
 from google import genai
@@ -64,9 +62,16 @@ def _log_end(req_id: str, phase: str, t0: float, extra: str = "") -> None:
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
+WEBHOOK_PATH = os.environ.get("WEBHOOK_PATH")
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET")
+RENDER_EXTERNAL_URL = "https://ai-audio-vision-lab.onrender.com"
 
 if not TELEGRAM_BOT_TOKEN:
     raise RuntimeError("Variabile d'ambiente TELEGRAM_BOT_TOKEN mancante.")
+if not WEBHOOK_PATH:
+    raise RuntimeError("Variabile d'ambiente WEBHOOK_PATH mancante.")
+if not WEBHOOK_SECRET:
+    raise RuntimeError("Variabile d'ambiente WEBHOOK_SECRET mancante.")
 if not GEMINI_API_KEY:
     raise RuntimeError("Variabile d'ambiente GEMINI_API_KEY mancante.")
 
@@ -925,33 +930,7 @@ async def handle_save_favorite(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer(i18n.t(language, "favorite_saved"), show_alert=False)
 
 
-class _HealthCheckHandler(http.server.BaseHTTPRequestHandler):
-    """Risponde 200 "ok" a qualunque GET: serve solo a far vedere a Render
-    che il servizio e' vivo (Web Service Free spegne chi non risponde a un
-    health check HTTP entro il timeout di avvio), il bot vero e proprio
-    resta in polling Telegram, non HTTP."""
-
-    def do_GET(self) -> None:
-        self.send_response(200)
-        self.send_header("Content-Type", "text/plain")
-        self.end_headers()
-        self.wfile.write(b"ok")
-
-    def log_message(self, format: str, *args) -> None:
-        pass
-
-
-def start_health_check_server() -> None:
-    port = int(os.environ.get("PORT", "8080"))
-    server = http.server.ThreadingHTTPServer(("0.0.0.0", port), _HealthCheckHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    logger.info("Health check HTTP in ascolto su 0.0.0.0:%d", port)
-
-
 def main() -> None:
-    start_health_check_server()
-
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", handle_start))
@@ -961,8 +940,17 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(handle_regenerate, pattern=r"^regen$"))
     application.add_handler(CallbackQueryHandler(handle_save_favorite, pattern=r"^save_fav$"))
 
-    logger.info("Bot avviato, in polling.")
-    application.run_polling()
+    port = int(os.environ.get("PORT", "10000"))
+    webhook_url = f"{RENDER_EXTERNAL_URL}/{WEBHOOK_PATH}"
+
+    logger.info("Bot avviato, in webhook su 0.0.0.0:%d.", port)
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path=WEBHOOK_PATH,
+        webhook_url=webhook_url,
+        secret_token=WEBHOOK_SECRET,
+    )
 
 
 if __name__ == "__main__":
