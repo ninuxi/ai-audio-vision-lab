@@ -883,31 +883,35 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
-async def handle_donate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/dona e /donate condividono questo handler: rispondono nella lingua
-    già scelta dall'utente (sessione, poi storage, poi default) qualunque
-    sia il comando usato per invocarli. Solo un link statico PayPal.me,
-    niente verifica del pagamento: il collegamento fra donazioni e budget
-    Gemini resta manuale."""
-    if update.message is None:
-        return
-    user = update.effective_user
-    language = (
-        context.user_data.get("language")
-        or await storage.get_language(user.id)
-        or i18n.DEFAULT_LANGUAGE
-    )
-    context.user_data["language"] = language
-
+async def _reply_donate(message, language: str) -> None:
+    """Solo un link statico PayPal.me, niente verifica del pagamento: il
+    collegamento fra donazioni e budget Gemini resta manuale."""
     if not PAYPAL_ME_URL:
-        await update.message.reply_text(i18n.t(language, "donate_not_configured"))
+        await message.reply_text(i18n.t(language, "donate_not_configured"))
         return
 
     url = PAYPAL_ME_URL_IT if language == "it" else PAYPAL_ME_URL_EN
     keyboard = InlineKeyboardMarkup(
         [[InlineKeyboardButton(i18n.t(language, "button_donate"), url=url)]]
     )
-    await update.message.reply_text(i18n.t(language, "donate_text"), reply_markup=keyboard)
+    await message.reply_text(i18n.t(language, "donate_text"), reply_markup=keyboard)
+
+
+async def handle_donate_it(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/dona: risponde sempre in italiano, indipendentemente dalla lingua
+    salvata dell'utente -- il nome del comando stesso è la scelta di
+    lingua. Non tocca la lingua di sessione/storage: resta un comando
+    isolato, non cambia le risposte successive del bot."""
+    if update.message is None:
+        return
+    await _reply_donate(update.message, "it")
+
+
+async def handle_donate_en(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/donate: equivalente inglese di handle_donate_it, vedi lì."""
+    if update.message is None:
+        return
+    await _reply_donate(update.message, "en")
 
 
 async def handle_language_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -991,7 +995,8 @@ def main() -> None:
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", handle_start))
-    application.add_handler(CommandHandler(["dona", "donate"], handle_donate))
+    application.add_handler(CommandHandler("dona", handle_donate_it))
+    application.add_handler(CommandHandler("donate", handle_donate_en))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(CallbackQueryHandler(handle_language_choice, pattern=r"^lang:"))
     application.add_handler(CallbackQueryHandler(handle_mood_choice, pattern=r"^mood:"))
