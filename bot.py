@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import time
+from urllib.parse import urlsplit
 
 from google import genai
 from google.genai import errors as genai_errors
@@ -74,6 +75,35 @@ if not WEBHOOK_SECRET:
     raise RuntimeError("Variabile d'ambiente WEBHOOK_SECRET mancante.")
 if not GEMINI_API_KEY:
     raise RuntimeError("Variabile d'ambiente GEMINI_API_KEY mancante.")
+
+# Link statico PayPal.me mostrato dal comando /dona, /donate: nessuna API
+# PayPal, nessun webhook, nessuno stato da tracciare. Se manca, il comando
+# resta attivo ma avvisa che il link non è ancora configurato, per non far
+# esplodere il bot in produzione se la variabile non è ancora stata
+# impostata su Render.
+PAYPAL_ME_URL = os.environ.get("PAYPAL_ME_URL", "")
+if not PAYPAL_ME_URL:
+    logger.warning(
+        "Variabile d'ambiente PAYPAL_ME_URL non impostata: /dona e /donate "
+        "mostreranno un avviso invece del link di donazione."
+    )
+
+
+def _paypal_url_without_locale(url: str) -> str:
+    """Toglie query string (es. locale.x=it_IT&country.x=IT) da un link
+    PayPal.me, cosi' PayPal mostra la pagina nella lingua del browser di chi
+    clicca invece di forzare l'italiano."""
+    if not url:
+        return ""
+    parts = urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}{parts.path}"
+
+
+# PAYPAL_ME_URL va impostata su Render con locale.x=it_IT&country.x=IT (vedi
+# link reale in produzione): usata cosi' com'e' per l'italiano, senza query
+# string per l'inglese.
+PAYPAL_ME_URL_IT = PAYPAL_ME_URL
+PAYPAL_ME_URL_EN = _paypal_url_without_locale(PAYPAL_ME_URL)
 
 # L'SDK non ha un timeout di default: se Gemini non risponde affatto (visto
 # empiricamente con gemini-3.5-flash-lite + immagine, verosimilmente
@@ -853,6 +883,33 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
+async def handle_donate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/dona e /donate condividono questo handler: rispondono nella lingua
+    già scelta dall'utente (sessione, poi storage, poi default) qualunque
+    sia il comando usato per invocarli. Solo un link statico PayPal.me,
+    niente verifica del pagamento: il collegamento fra donazioni e budget
+    Gemini resta manuale."""
+    if update.message is None:
+        return
+    user = update.effective_user
+    language = (
+        context.user_data.get("language")
+        or await storage.get_language(user.id)
+        or i18n.DEFAULT_LANGUAGE
+    )
+    context.user_data["language"] = language
+
+    if not PAYPAL_ME_URL:
+        await update.message.reply_text(i18n.t(language, "donate_not_configured"))
+        return
+
+    url = PAYPAL_ME_URL_IT if language == "it" else PAYPAL_ME_URL_EN
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton(i18n.t(language, "button_donate"), url=url)]]
+    )
+    await update.message.reply_text(i18n.t(language, "donate_text"), reply_markup=keyboard)
+
+
 async def handle_language_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None or query.data is None:
@@ -934,6 +991,7 @@ def main() -> None:
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", handle_start))
+    application.add_handler(CommandHandler(["dona", "donate"], handle_donate))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(CallbackQueryHandler(handle_language_choice, pattern=r"^lang:"))
     application.add_handler(CallbackQueryHandler(handle_mood_choice, pattern=r"^mood:"))

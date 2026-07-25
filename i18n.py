@@ -22,7 +22,9 @@ STRINGS = {
             "Poi: guardo la scena, ti chiedo che aria darle, scrivo la musica, "
             "te la mando come file audio. Ci vuole circa un minuto.\n\n"
             "È uno strumento condiviso: ogni tanto la musica del giorno "
-            "finisce, in quel caso si riparte il giorno dopo. Cominciamo?"
+            "finisce, in quel caso si riparte il giorno dopo.\n\n"
+            "Se il progetto ti piace, c'è il comando /dona per sostenerlo.\n\n"
+            "Cominciamo?"
         ),
         "need_language_first": (
             "Prima scegli la lingua qui sotto, poi rimandami la foto. / "
@@ -68,6 +70,16 @@ STRINGS = {
             "Non ritrovo più i dati di questa richiesta (troppo tempo passato "
             "o il bot è stato riavviato). Rimandami la foto."
         ),
+        "donate_text": (
+            "Questo bot gira gratis, ma le chiamate al modello che legge le "
+            "foto hanno un tetto giornaliero condiviso da tutti gli utenti. "
+            "Se si esaurisce, il bot si blocca per tutti fino al giorno dopo. "
+            "Una donazione libera serve a passare a un piano con più margine, "
+            "così il bot scatta più foto al giorno senza fermarsi. Non è "
+            "obbligatoria, ma se il progetto ti piace è come tenerlo acceso."
+        ),
+        "button_donate": "Dona via PayPal",
+        "donate_not_configured": "Il link per le donazioni non è ancora configurato.",
     },
     "en": {
         "choose_language": "Scegli la lingua / Choose your language:",
@@ -82,7 +94,9 @@ STRINGS = {
             "Then: I look at the scene, ask what mood you want, write the "
             "music, send it back as an audio file. Takes about a minute.\n\n"
             "It's a shared tool: sometimes the day's music runs out, and "
-            "we pick back up the next day. Ready?"
+            "we pick back up the next day.\n\n"
+            "If you'd like to support it, there's the /donate command.\n\n"
+            "Ready?"
         ),
         "need_language_first": (
             "Prima scegli la lingua qui sotto, poi rimandami la foto. / "
@@ -128,6 +142,16 @@ STRINGS = {
             "I can't find this request anymore (too much time passed, or "
             "the bot restarted). Send me the photo again."
         ),
+        "donate_text": (
+            "This bot runs for free, but the calls to the model that reads "
+            "the photos share one daily cap across every user. When it runs "
+            "out, the bot stops for everyone until the next day. A free "
+            "donation helps move to a plan with more room, so the bot can "
+            "process more photos a day without stopping. It's not required, "
+            "but if you like the project it's a way to keep it running."
+        ),
+        "button_donate": "Donate via PayPal",
+        "donate_not_configured": "The donation link isn't configured yet.",
     },
 }
 

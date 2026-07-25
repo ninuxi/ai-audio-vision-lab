@@ -1,6 +1,10 @@
 <img width="1536" height="946" alt="git_audiofoto" src="https://github.com/user-attachments/assets/77c30683-2289-476d-9a0b-96c597a4f27f" />
 # 🎛️ AI Audio Vision Lab
 
+<div align="center">
+  <img src="docs/images/git_audiofoto.png" alt="AI Audio Vision Lab: da una foto a un brano musicale" width="800"/>
+</div>
+
 ![Python](https://img.shields.io/badge/python-3.11-blue.svg)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
@@ -150,6 +154,16 @@ Il progetto è in sviluppo attivo. Funzionante: pipeline completa foto → compo
 ## 🇬🇧 Project status
 
 Actively in development. Working: complete photo → composition → audio pipeline, with sequenced melody, bass, and percussion (no longer a static drone). In progress: melodic quality refinement, daily usage limit system with donation-based unlock.
+
+---
+
+## 🇮🇹 Supporto
+
+Il bot ha un comando `/dona` che mostra un link statico PayPal.me (variabile d'ambiente `PAYPAL_ME_URL`): nessuna verifica automatica del pagamento, nessun collegamento diretto al budget Gemini — l'eventuale upgrade del piano viene fatto a mano da Antonio quando arrivano donazioni sufficienti.
+
+## 🇬🇧 Support
+
+The bot has a `/donate` command that shows a static PayPal.me link (`PAYPAL_ME_URL` environment variable): no automatic payment verification, no direct link to the Gemini budget — any plan upgrade is done manually by Antonio once enough donations come in.
 
 ---
 
