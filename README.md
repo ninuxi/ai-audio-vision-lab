@@ -179,3 +179,12 @@ MIT License. See the LICENSE file for details.
 
 - Email: oggettosonoro@gmail.com
 - GitHub: ninuxi
+
+
+---
+
+## Documentazione / Documentation
+
+Stato del progetto, decisioni e architettura: ai-audio-vision-lab_stato-progetto.md
+
+Guasto 503 sulla visione, diagnosi e fix con catena di modelli, quote reali del livello gratuito: ai-audio-vision-lab_503-visione.md
