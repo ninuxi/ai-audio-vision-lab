@@ -266,8 +266,15 @@ e ripetere la procedura.
 
 ## Note operative
 
-- **Auto-Deploy su Render è "On Commit"**: le etichette "Manual" sui deploy
-  passati indicano solo deploy lanciati a mano, non l'automatismo spento.
+- **Auto-deploy attivo e verificato dal 7 settembre 2026**: l'impostazione
+  era già su "On Commit", ma il servizio era collegato come "Public Git
+  Repository", cioè un semplice URL, quindi Render non riceveva nessun
+  evento di push e non deployava mai da solo (il repo non aveva nessun
+  webhook e la GitHub App di Render non era installata). Risolto
+  collegando il provider Git: Settings → Source → Edit → GitHub, con
+  autorizzazione della GitHub App di Render sul repository. Verificato sul
+  campo: il commit 1509d88 ha prodotto un deploy con trigger "Auto-Deploy"
+  riuscito in 32,9s.
 - Filesystem effimero su Render free: la scelta della lingua e il contatore
   di budget si perdono a ogni risveglio dell'istanza, non solo ai redeploy.
   Il 429 di Gemini resta la vera rete di sicurezza sulla quota.

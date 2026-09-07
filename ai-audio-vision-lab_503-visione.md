@@ -133,9 +133,13 @@ nuova chiave API da creare e gestire. Non implementato: da valutare.
 
 ## Note operative emerse durante il lavoro
 
-- **Auto-Deploy su Render è impostato su "On Commit"**. Le etichette
-  "Manual" sui deploy passati indicano solo che quei deploy erano stati
-  lanciati a mano, non che l'automatismo fosse spento.
+- **Auto-deploy: era impostato su "On Commit" ma non funzionava**, perché
+  il servizio era collegato come "Public Git Repository" (un semplice URL)
+  e Render non riceveva nessun evento di push: nel repo non c'era alcun
+  webhook e la GitHub App di Render non era installata. Sistemato il 7
+  settembre 2026 collegando il provider Git e autorizzando la GitHub App
+  sul repository; verificato con il commit 1509d88, deploy automatico
+  riuscito in 32,9s. Da qui in avanti il push basta.
 - Il file utenti sta in `/tmp` (`USER_DB_PATH`) e su Render free è
   effimero: **la scelta della lingua si perde a ogni risveglio
   dell'istanza**, non solo a ogni redeploy. Verificato sul campo il 7
