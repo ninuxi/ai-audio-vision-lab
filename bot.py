@@ -133,6 +133,74 @@ GEMINI_MODEL_RPD = int(os.environ.get("GEMINI_MODEL_RPD", "500"))
 QUOTA_SAFETY_MARGIN = float(os.environ.get("QUOTA_SAFETY_MARGIN", "0.8"))
 DAILY_GEMINI_CALL_BUDGET = max(1, int(GEMINI_MODEL_RPD * QUOTA_SAFETY_MARGIN))
 
+# CATENA DI MODELLI, in ordine di preferenza: "nome:RPD,nome:RPD,...".
+# Nasce da un guasto reale in produzione (5 e 7 settembre 2026): Gemini ha
+# risposto 503 UNAVAILABLE "This model is currently experiencing high
+# demand" alla chiamata di visione, e con un modello solo non c'era nessuna
+# strada alternativa: l'utente riceveva un errore secco. Un 503 non e' un
+# problema di quota, e' capacita' del modello, quindi aspettare il giorno
+# dopo non serve a niente: serve un altro modello.
+#
+# Numeri RPD verificati sulla pagina Rate Limit di Google AI Studio
+# (livello gratuito, 7 settembre 2026), non a memoria:
+#   gemini-3.5-flash-lite  RPM 15  RPD 500
+#   gemini-3.1-flash-lite  RPM 15  RPD 500
+#   gemini-3.8-flash       RPM  5  RPD  20
+# I due "lite" sono gli unici con RPD 500: sono la coppia che regge il
+# traffico. I Flash pieni hanno RPD 20, inutilizzabili come default ma
+# preziosi come ultima riserva quando entrambi i lite sono giu': meglio 20
+# risposte al giorno che zero. La catena e' anche la riserva per il caso
+# "token finiti": il 429 blocca il singolo modello, non tutta la catena.
+_DEFAULT_GEMINI_MODEL_CHAIN = (
+    "gemini-3.5-flash-lite:500,gemini-3.1-flash-lite:500,gemini-3.8-flash:20"
+)
+
+
+def _parse_model_chain(raw: str) -> list[tuple[str, int]]:
+    catena: list[tuple[str, int]] = []
+    for voce in raw.split(","):
+        voce = voce.strip()
+        if not voce:
+            continue
+        nome, _, rpd = voce.partition(":")
+        nome = nome.strip()
+        if not nome:
+            continue
+        try:
+            rpd_int = int(rpd)
+        except ValueError:
+            rpd_int = GEMINI_MODEL_RPD
+        catena.append((nome, max(1, rpd_int)))
+    return catena
+
+
+GEMINI_MODEL_CHAIN = _parse_model_chain(
+    os.environ.get("GEMINI_MODEL_CHAIN", _DEFAULT_GEMINI_MODEL_CHAIN)
+)
+if not GEMINI_MODEL_CHAIN:
+    GEMINI_MODEL_CHAIN = _parse_model_chain(_DEFAULT_GEMINI_MODEL_CHAIN)
+
+# GEMINI_MODEL resta la variabile storica gia' impostabile su Render: se
+# punta a un modello che non e' in testa alla catena, lo si mette davanti
+# senza perdere gli altri come riserva (prima sostituiva l'unico modello,
+# ora sceglie solo da dove partire).
+if GEMINI_MODEL and GEMINI_MODEL_CHAIN[0][0] != GEMINI_MODEL:
+    rpd_testa = next(
+        (r for (m, r) in GEMINI_MODEL_CHAIN if m == GEMINI_MODEL), GEMINI_MODEL_RPD
+    )
+    GEMINI_MODEL_CHAIN = [(GEMINI_MODEL, rpd_testa)] + [
+        (m, r) for (m, r) in GEMINI_MODEL_CHAIN if m != GEMINI_MODEL
+    ]
+
+# Tentativi sullo STESSO modello prima di passare al successivo, e attesa
+# fra un tentativo e l'altro. Tenuti bassi apposta: il client Gemini fa gia'
+# i suoi retry interni (visto nei log: 24 secondi di tenacity prima di
+# arrendersi sul 503), e l'utente sta aspettando in chat.
+GEMINI_ATTEMPTS_PER_MODEL = int(os.environ.get("GEMINI_ATTEMPTS_PER_MODEL", "2"))
+GEMINI_RETRY_BACKOFF_SECONDS = float(
+    os.environ.get("GEMINI_RETRY_BACKOFF_SECONDS", "2")
+)
+
 # Pd (main.pd) ascolta OSC su questa porta. WAV e flag di completamento
 # usano nomi FISSI (non uno per render): main.pd li ha hardcoded agli stessi
 # path, vanno cambiati in coppia. Un nome fisso invece che basato sul seed
@@ -202,66 +270,117 @@ class QuotaExhaustedError(Exception):
     call_gemini_tracked). Il chiamante deve interrompere la pipeline."""
 
 
+class ModelsUnavailableError(Exception):
+    """Sollevata quando OGNI modello della catena ha rifiutato la chiamata
+    per sovraccarico o errore di servizio (5xx), non per quota. Differenza
+    che conta per l'utente: la quota si ricarica domani, il sovraccarico
+    passa in pochi minuti, e i due casi meritano due messaggi diversi."""
+
+
 def _is_quota_exhausted(exc: Exception) -> bool:
     return isinstance(exc, genai_errors.APIError) and exc.code == 429
 
 
+def _is_overloaded(exc: Exception) -> bool:
+    """5xx lato Google: il modello e' sovraccarico o il servizio ha un
+    problema temporaneo. Vale la pena ritentare e, se insiste, cambiare
+    modello."""
+    return isinstance(exc, genai_errors.APIError) and exc.code in (500, 502, 503, 504)
+
+
 async def call_gemini_tracked(func, *args, req_id: str = "-", phase: str = "gemini_call"):
-    """Controlla e consuma 1 unità dal budget Gemini condiviso, poi chiama
-    func(*args) in un thread (tutte le funzioni che parlano con Gemini in
-    questo file sono sincrone). Un incremento per ogni chiamata reale,
-    fatto qui prima della chiamata stessa -- non un conteggio per foto a
-    fine pipeline.
+    """Chiama func(model, *args) percorrendo GEMINI_MODEL_CHAIN finche' un
+    modello risponde, e tiene il conto delle chiamate per ciascun modello.
+    Tutte le funzioni che parlano con Gemini in questo file sono sincrone e
+    ricevono il nome del modello come PRIMO argomento: e' call_gemini_tracked
+    a decidere quale, non piu' una costante globale.
 
-    Se il contatore locale segna già esaurito, solleva subito
-    QuotaExhaustedError senza nemmeno provare la chiamata. Se invece è
-    Gemini a rispondere 429, quello è il segnale vero (il contatore locale
-    è solo una stima preventiva, può essere disallineato da un restart):
-    blocchiamo il resto della finestra odierna via storage.mark_quota_blocked
-    e solleviamo comunque QuotaExhaustedError.
+    Regole, una per tipo di guasto:
+    - budget locale del modello gia' esaurito: si passa al modello
+      successivo senza nemmeno provare;
+    - 429 (quota reale finita per quel modello): storage.mark_model_quota_blocked
+      lo esclude per il resto della giornata e si passa al successivo. E'
+      la riserva per il caso "token finiti": un modello a secco non ferma
+      piu' tutto il bot;
+    - 5xx (sovraccarico, il guasto del 5 e 7 settembre 2026): si ritenta
+      GEMINI_ATTEMPTS_PER_MODEL volte sullo stesso modello con una breve
+      attesa, poi si passa al successivo;
+    - JSON non conforme: stesso trattamento del 5xx, perche' un modello
+      diverso ha buone probabilita' di rispettare lo schema dove un altro
+      ha sbagliato;
+    - qualsiasi altro errore: si passa al modello successivo senza
+      ritentare (ritentare un 400 non serve a niente).
 
-    req_id/phase sono solo per strumentazione (timestamp+durata nei log,
-    vedi _log_start/_log_end): non cambiano il comportamento. "retry=0" nel
-    log di fine è fisso perché al momento non esiste alcun ciclo di retry
-    in questa funzione né nel client Gemini (nessuna chiamata viene
-    ritentata automaticamente) -- il campo è pronto per quando/se un retry
-    verrà aggiunto, ma oggi è sempre 0.
+    Se la catena finisce senza successo si distingue il perche', perche'
+    l'utente merita due messaggi diversi: nessun modello aveva budget o
+    tutti hanno risposto 429 -> QuotaExhaustedError (torna domani); JSON mai
+    conforme -> GeminiJSONError (riprova con un'altra foto); tutto il resto
+    -> ModelsUnavailableError (sovraccarico, riprova fra poco).
     """
-    allowed = await storage.check_and_consume_global_quota(DAILY_GEMINI_CALL_BUDGET)
-    if not allowed:
-        logger.info(
-            "[%s] %s: budget locale già esaurito, chiamata Gemini non tentata",
-            req_id, phase,
-        )
-        raise QuotaExhaustedError()
+    ultimo_errore: Exception | None = None
+    solo_quota = True
+    for model, rpd in GEMINI_MODEL_CHAIN:
+        budget = max(1, int(rpd * QUOTA_SAFETY_MARGIN))
+        fase_modello = f"{phase}[{model}]"
+        for tentativo in range(1, GEMINI_ATTEMPTS_PER_MODEL + 1):
+            allowed = await storage.check_and_consume_model_quota(model, budget)
+            if not allowed:
+                logger.info(
+                    "[%s] %s: budget locale esaurito per %s, passo al modello "
+                    "successivo della catena",
+                    req_id, phase, model,
+                )
+                break
 
-    t0 = _log_start(req_id, phase)
-    try:
-        result = await asyncio.to_thread(func, *args)
-    except Exception as e:
-        duration = _t() - t0
-        if isinstance(e, genai_errors.APIError):
-            logger.warning(
-                "[%s] %s: chiamata Gemini fallita dopo %.2fs, HTTP %s status=%s: %s",
-                req_id, phase, duration, e.code, e.status, e.details,
-            )
-        else:
-            logger.warning(
-                "[%s] %s: chiamata Gemini fallita dopo %.2fs: %s",
-                req_id, phase, duration, e,
-            )
-        if _is_quota_exhausted(e):
-            logger.warning(
-                "[%s] %s: Gemini ha risposto 429, quota reale esaurita, blocco "
-                "il resto della finestra odierna (Pacific Time) "
-                "indipendentemente dal contatore locale.",
-                req_id, phase,
-            )
-            await storage.mark_quota_blocked()
-            raise QuotaExhaustedError() from e
-        raise
-    _log_end(req_id, phase, t0, extra="retry=0")
-    return result
+            t0 = _log_start(req_id, fase_modello)
+            try:
+                result = await asyncio.to_thread(func, model, *args)
+            except Exception as e:
+                ultimo_errore = e
+                durata = _t() - t0
+                if isinstance(e, genai_errors.APIError):
+                    logger.warning(
+                        "[%s] %s: fallita dopo %.2fs (tentativo %d), HTTP %s "
+                        "status=%s: %s",
+                        req_id, fase_modello, durata, tentativo, e.code,
+                        e.status, e.details,
+                    )
+                else:
+                    logger.warning(
+                        "[%s] %s: fallita dopo %.2fs (tentativo %d): %s",
+                        req_id, fase_modello, durata, tentativo, e,
+                    )
+
+                if _is_quota_exhausted(e):
+                    logger.warning(
+                        "[%s] %s: 429, quota reale di questo modello esaurita: "
+                        "lo escludo per il resto della finestra odierna "
+                        "(Pacific Time) e passo al modello successivo.",
+                        req_id, fase_modello,
+                    )
+                    await storage.mark_model_quota_blocked(model)
+                    break
+
+                solo_quota = False
+
+                if (_is_overloaded(e) or isinstance(e, GeminiJSONError)) and (
+                    tentativo < GEMINI_ATTEMPTS_PER_MODEL
+                ):
+                    await asyncio.sleep(GEMINI_RETRY_BACKOFF_SECONDS * tentativo)
+                    continue
+                break
+            else:
+                _log_end(req_id, fase_modello, t0, extra=f"tentativo={tentativo}")
+                return result
+
+    if ultimo_errore is None or solo_quota:
+        raise QuotaExhaustedError()
+    if isinstance(ultimo_errore, GeminiJSONError):
+        raise ultimo_errore
+    raise ModelsUnavailableError(
+        f"nessun modello disponibile in {[m for m, _ in GEMINI_MODEL_CHAIN]}: "
+        f"ultimo errore {ultimo_errore!r}"
+    ) from ultimo_errore
 
 
 def _strip_markdown_fence(text: str) -> str:
@@ -318,10 +437,12 @@ def _parse_and_validate(text: str, validator) -> dict:
     return parsed
 
 
-def describe_scene(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
+def describe_scene(
+    model: str, image_bytes: bytes, mime_type: str = "image/jpeg"
+) -> dict:
     """Primo passaggio Gemini: foto -> JSON descrittivo della scena."""
     response = gemini_client.models.generate_content(
-        model=GEMINI_MODEL,
+        model=model,
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
             VISION_PROMPT,
@@ -454,7 +575,7 @@ def _valida_combined(obj) -> tuple[bool, str]:
 
 
 def plan_composition_and_synth(
-    scene: dict, mood_key: str, previous_plan: dict | None = None
+    model: str, scene: dict, mood_key: str, previous_plan: dict | None = None
 ) -> dict:
     """Secondo passaggio Gemini (accorpato): JSON descrittivo della scena ->
     UN JSON che contiene sia il piano compositivo descrittivo sia i
@@ -482,7 +603,7 @@ def plan_composition_and_synth(
         variation_note=variation_note,
     )
     response = gemini_client.models.generate_content(
-        model=GEMINI_MODEL,
+        model=model,
         contents=prompt,
     )
     return _parse_and_validate(response.text, _valida_combined)
@@ -510,7 +631,9 @@ NARRATE_PROMPT_TEMPLATE = (
 )
 
 
-def narrate_result(scene: dict, plan: dict, mood_key: str, language: str) -> str:
+def narrate_result(
+    model: str, scene: dict, plan: dict, mood_key: str, language: str
+) -> str:
     """Quarto passaggio Gemini: scena + piano -> prosa breve ed evocativa
     nella lingua dell'utente. Testo libero, non JSON: nessuna validazione
     di schema, solo uno strip difensivo."""
@@ -521,7 +644,7 @@ def narrate_result(scene: dict, plan: dict, mood_key: str, language: str) -> str
         plan_json=json.dumps(plan, ensure_ascii=False),
     )
     response = gemini_client.models.generate_content(
-        model=GEMINI_MODEL,
+        model=model,
         contents=prompt,
     )
     text = (response.text or "").strip()
@@ -747,6 +870,10 @@ async def run_composition_and_finish(
     except QuotaExhaustedError:
         await status_message.edit_text(i18n.t(language, "daily_budget_exhausted"))
         return
+    except ModelsUnavailableError as e:
+        logger.warning("Nessun modello disponibile per il piano compositivo: %s", e)
+        await status_message.edit_text(i18n.t(language, "error_overloaded"))
+        return
     except GeminiJSONError as e:
         logger.warning("Piano compositivo/sintesi non valido: %s", e)
         await status_message.edit_text(i18n.t(language, "error_plan_invalid"))
@@ -855,6 +982,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
     except QuotaExhaustedError:
         await status_message.edit_text(i18n.t(language, "daily_budget_exhausted"))
+        return
+    except ModelsUnavailableError as e:
+        logger.warning("[%s] Nessun modello disponibile per la visione: %s", req_id, e)
+        await status_message.edit_text(i18n.t(language, "error_overloaded"))
         return
     except GeminiJSONError as e:
         logger.warning("[%s] Descrizione scena non valida: %s", req_id, e)

@@ -47,6 +47,12 @@ STRINGS = {
         "button_save_favorite": "Salva nei preferiti",
         "favorite_saved": "Salvato nei preferiti.",
         "done_fallback_caption": "Ecco cosa ne è venuto fuori.",
+        "error_overloaded": (
+            "I modelli che uso per guardare le foto sono presi d'assalto in "
+            "questo momento: li ho provati tutti, nessuno risponde. Non è la "
+            "musica del giorno che è finita, è traffico: riprova fra qualche "
+            "minuto."
+        ),
         "error_vision_invalid": (
             "Non sono riuscito a interpretare la scena in modo strutturato. "
             "Riprova con un'altra foto."
@@ -119,6 +125,11 @@ STRINGS = {
         "button_save_favorite": "Save to favorites",
         "favorite_saved": "Saved to favorites.",
         "done_fallback_caption": "Here's what came out of it.",
+        "error_overloaded": (
+            "The models I use to look at photos are swamped right now: I "
+            "tried them all, none answers. It's not the daily music running "
+            "out, it's traffic: try again in a few minutes."
+        ),
         "error_vision_invalid": (
             "I couldn't make sense of the scene in a structured way. Try "
             "another photo."

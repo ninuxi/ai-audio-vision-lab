@@ -91,16 +91,27 @@ def _get_user_locked(data: dict, user_id: int) -> dict:
     return user
 
 
-def _get_global_quota_locked(data: dict) -> dict:
+def _get_model_quota_locked(data: dict, model: str) -> dict:
+    """Contatore giornaliero PER MODELLO, non piu' uno globale: ogni modello
+    della catena (vedi GEMINI_MODEL_CHAIN in bot.py) ha una sua RPD, quindi
+    un contatore unico non saprebbe dire quale modello e' ancora usabile.
+    Formato: {"date": "AAAA-MM-GG", "models": {"nome-modello": {"count": N,
+    "blocked": bool}}}. Il vecchio formato a contatore unico, se trovato in
+    un file scritto da una versione precedente, viene semplicemente
+    ricreato: e' una stima preventiva, perderla non ha conseguenze.
+    """
     quota = data.get(_GLOBAL_QUOTA_KEY)
-    if quota is None:
-        quota = {"date": _today(), "count": 0, "blocked": False}
+    if quota is None or "models" not in quota:
+        quota = {"date": _today(), "models": {}}
         data[_GLOBAL_QUOTA_KEY] = quota
     if quota.get("date") != _today():
         quota["date"] = _today()
-        quota["count"] = 0
-        quota["blocked"] = False
-    return quota
+        quota["models"] = {}
+    per_modello = quota["models"].get(model)
+    if per_modello is None:
+        per_modello = {"count": 0, "blocked": False}
+        quota["models"][model] = per_modello
+    return per_modello
 
 
 async def get_language(user_id: int) -> str | None:
@@ -118,19 +129,20 @@ async def set_language(user_id: int, language: str) -> None:
         _save_all(data)
 
 
-async def check_and_consume_global_quota(daily_budget: int) -> bool:
-    """Budget condiviso da TUTTE le chiamate Gemini di TUTTI gli utenti
-    (non un limite per singolo utente, non un conteggio per foto): ritorna
-    True e consuma una delle daily_budget chiamate odierne se disponibile,
-    altrimenti False senza consumare nulla. Si azzera a mezzanotte Pacific
-    Time (vedi _GEMINI_QUOTA_TZ), come la quota reale di Gemini.
+async def check_and_consume_model_quota(model: str, daily_budget: int) -> bool:
+    """Budget giornaliero del singolo MODELLO, condiviso da tutti gli utenti
+    (non un limite per utente, non un conteggio per foto): ritorna True e
+    consuma una delle daily_budget chiamate odierne di quel modello se
+    disponibile, altrimenti False senza consumare nulla. Si azzera a
+    mezzanotte Pacific Time (vedi _GEMINI_QUOTA_TZ), come la quota reale.
 
-    Ritorna False anche se una chiamata Gemini ha già segnalato 429 in
-    questa stessa finestra (vedi mark_quota_blocked): quel segnale vale
-    più del conteggio locale."""
+    Ritorna False anche se quel modello ha gia' risposto 429 in questa
+    finestra (vedi mark_model_quota_blocked): quel segnale vale piu' del
+    conteggio locale. Un modello bloccato non blocca gli altri della
+    catena: e' esattamente il punto di avere una catena."""
     async with _lock:
         data = _load_all()
-        quota = _get_global_quota_locked(data)
+        quota = _get_model_quota_locked(data, model)
         if quota.get("blocked") or quota["count"] >= daily_budget:
             return False
         quota["count"] += 1
@@ -138,23 +150,24 @@ async def check_and_consume_global_quota(daily_budget: int) -> bool:
         return True
 
 
-async def mark_quota_blocked() -> None:
-    """Chiamare quando Gemini risponde 429 (quota reale esaurita): blocca
-    ogni nuova chiamata per il resto della finestra odierna (Pacific
-    Time), indipendentemente da cosa dice il contatore locale -- che è
-    solo una stima preventiva, il 429 è la verità finale."""
+async def mark_model_quota_blocked(model: str) -> None:
+    """Chiamare quando Gemini risponde 429 per QUESTO modello (quota reale
+    esaurita): blocca ogni nuova chiamata a questo modello per il resto
+    della finestra odierna (Pacific Time), lasciando liberi gli altri
+    modelli della catena."""
     async with _lock:
         data = _load_all()
-        quota = _get_global_quota_locked(data)
+        quota = _get_model_quota_locked(data, model)
         quota["blocked"] = True
         _save_all(data)
 
 
-async def get_global_quota_status(daily_budget: int) -> tuple[int, int]:
-    """Ritorna (chiamate usate oggi, budget) senza consumare nulla."""
+async def get_model_quota_status(model: str, daily_budget: int) -> tuple[int, int]:
+    """Ritorna (chiamate usate oggi da questo modello, budget) senza
+    consumare nulla."""
     async with _lock:
         data = _load_all()
-        quota = _get_global_quota_locked(data)
+        quota = _get_model_quota_locked(data, model)
         return quota["count"], daily_budget
 
 
